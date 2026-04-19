@@ -379,8 +379,8 @@ function App() {
   const [sjcArchive, setSjcArchive] = useState<SJCArchive>({});
   const [currentDepartment, setCurrentDepartment] = useState<string>('运营管理二部');
   const [sjcView, setSjcView] = useState<'edit' | 'archive'>('edit');
-  // 聚焦模式：哪个单元格正在编辑（展开）
-  const [focusedCell, setFocusedCell] = useState<{ catIdx: number; field: string } | null>(null);
+  // 展开编辑的板块索引
+  const [expandedCat, setExpandedCat] = useState<number | null>(null);
 
   // 获取当前周数据
   const getCurrentSJCData = (): SJCWeekData | null => {
@@ -1325,45 +1325,38 @@ ${lastCategory?.entry.nextWeek || '无'}
                       </thead>
                       <tbody>
                         {getCurrentSJCData()!.categories.map((category, catIdx) => (
-                          <tr key={catIdx} className={catIdx % 2 === 0 ? 'bg-[#141414]' : 'bg-[#111111]'}>
-                            <td className="px-2 py-1 text-center text-[#666666] border border-[#2a2a2a]">{catIdx + 1}</td>
-                            <td className="px-2 py-1 text-left text-[#22c55e] border border-[#2a2a2a] text-xs font-medium bg-[#1a2616]">
+                          <tr
+                            key={catIdx}
+                            onClick={() => setExpandedCat(expandedCat === catIdx ? null : catIdx)}
+                            className={`cursor-pointer transition-all ${catIdx % 2 === 0 ? 'bg-[#141414]' : 'bg-[#111111]'} hover:bg-[#1a1a1a] ${expandedCat === catIdx ? 'bg-[#1a2616]' : ''}`}
+                          >
+                            <td className="px-2 py-3 text-center text-[#666666] border border-[#2a2a2a]">{catIdx + 1}</td>
+                            <td className="px-2 py-3 text-left text-[#22c55e] border border-[#2a2a2a] text-sm font-medium">
                               {category.name}
-                              {category.carriedFromLastWeek && <span className="ml-1 text-[8px] text-[#f59e0b]">📌延续</span>}
+                              {category.carriedFromLastWeek && <span className="ml-1 text-[8px] text-[#f59e0b]">📌</span>}
                             </td>
-                            {(['thisWeek', 'cumulative', 'nextWeek', 'issues', 'coordination'] as const).map((field) => (
-                              <td key={field} className={`px-1 py-1 border border-[#2a2a2a] ${focusedCell?.catIdx === catIdx && focusedCell?.field === field ? 'bg-[#1a2616] z-10' : ''}`}>
-                                <div className="flex gap-1 items-start">
-                                  <button
-                                    onClick={() => expandSJCCell(catIdx, field)}
-                                    disabled={loading}
-                                    className="px-1 py-0.5 text-[8px] bg-[#22c55e]/20 text-[#22c55e] rounded hover:bg-[#22c55e]/30 shrink-0"
-                                  >AI</button>
-                                  <textarea
-                                    value={category.entry[field]}
-                                    onChange={e => updateSJCCell(catIdx, field, e.target.value)}
-                                    onFocus={() => setFocusedCell({ catIdx, field })}
-                                    onBlur={() => setTimeout(() => setFocusedCell(null), 200)}
-                                    onKeyDown={e => { if (e.key === 'Escape') setFocusedCell(null); }}
-                                    placeholder="..."
-                                    className={`w-full bg-transparent text-[#c0c0c0] resize-none outline-none text-[10px] transition-all duration-200 ${focusedCell?.catIdx === catIdx && focusedCell?.field === field ? 'h-32 min-h-[80px] text-xs' : 'h-10'}`}
-                                  />
-                                </div>
-                              </td>
-                            ))}
-                            <td className="px-1 py-1 border border-[#2a2a2a]">
-                              <input
-                                value={category.entry.leader}
-                                onChange={e => updateSJCCell(catIdx, 'leader', e.target.value)}
-                                onFocus={() => setFocusedCell({ catIdx, field: 'leader' })}
-                                onBlur={() => setTimeout(() => setFocusedCell(null), 200)}
-                                className={`w-full bg-transparent text-[#c0c0c0] text-xs outline-none transition-all ${focusedCell?.catIdx === catIdx && focusedCell?.field === 'leader' ? 'h-8 bg-[#1a2616]' : 'h-6'}`}
-                              />
+                            <td className="px-2 py-3 text-[#888] border border-[#2a2a2a] text-xs max-w-[200px] truncate">
+                              {category.entry.thisWeek || '点击填写...'}
                             </td>
-                            <td className="px-1 py-1 border border-[#2a2a2a] text-center">
+                            <td className="px-2 py-3 text-[#888] border border-[#2a2a2a] text-xs max-w-[200px] truncate">
+                              {category.entry.cumulative || '-'}
+                            </td>
+                            <td className="px-2 py-3 text-[#888] border border-[#2a2a2a] text-xs max-w-[200px] truncate">
+                              {category.entry.nextWeek || '-'}
+                            </td>
+                            <td className="px-2 py-3 text-[#888] border border-[#2a2a2a] text-xs max-w-[150px] truncate">
+                              {category.entry.issues || '-'}
+                            </td>
+                            <td className="px-2 py-3 text-[#888] border border-[#2a2a2a] text-xs max-w-[150px] truncate">
+                              {category.entry.coordination || '-'}
+                            </td>
+                            <td className="px-2 py-3 text-[#888] border border-[#2a2a2a] text-xs">
+                              {category.entry.leader || '-'}
+                            </td>
+                            <td className="px-1 py-3 border border-[#2a2a2a] text-center">
                               <button
-                                onClick={() => copyCategoryText(catIdx)}
-                                className="px-1 py-0.5 text-[8px] bg-[#3b82f6]/20 text-[#3b82f6] rounded hover:bg-[#3b82f6]/30"
+                                onClick={(e) => { e.stopPropagation(); copyCategoryText(catIdx); }}
+                                className="px-2 py-1 text-xs bg-[#3b82f6]/20 text-[#3b82f6] rounded hover:bg-[#3b82f6]/30"
                               >📋</button>
                             </td>
                           </tr>
@@ -1373,141 +1366,121 @@ ${lastCategory?.entry.nextWeek || '无'}
                   </div>
                 )}
 
-                {/* 移动端卡片 */}
-                {isMobile && (
-                  <div className="space-y-3">
-                    {getCurrentSJCData()!.categories.map((category, catIdx) => (
-                      <div key={catIdx} className="bg-[#111111] rounded-xl border border-[#1f1f1f] p-3">
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="text-sm font-medium text-[#22c55e]">
-                            {category.name}
-                            {category.carriedFromLastWeek && <span className="ml-1 text-[10px] text-[#f59e0b]">📌</span>}
-                          </span>
-                          <button
-                            onClick={() => copyCategoryText(catIdx)}
-                            className="px-2 py-1 text-xs bg-[#3b82f6]/20 text-[#3b82f6] rounded"
-                          >📋 复制</button>
-                        </div>
-                        <div className="space-y-2">
+                {/* 展开的编辑面板 - 点击任意行后显示 */}
+                {expandedCat !== null && getCurrentSJCData() && (() => {
+                  const category = getCurrentSJCData()!.categories[expandedCat];
+                  return (
+                    <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4" onClick={() => setExpandedCat(null)}>
+                      <div className="bg-[#111111] rounded-2xl border border-[#2a2a2a] w-full max-w-2xl max-h-[90vh] overflow-auto" onClick={e => e.stopPropagation()}>
+                        <div className="sticky top-0 bg-[#111111] border-b border-[#2a2a2a] p-4 flex items-center justify-between">
                           <div>
-                            <label className="text-[10px] text-[#888888] block mb-1">本周完成</label>
-                            <div className="flex gap-1">
+                            <h3 className="text-lg font-medium text-white">{category.name}</h3>
+                            {category.carriedFromLastWeek && <span className="text-xs text-[#f59e0b]">📌 从上周延续</span>}
+                          </div>
+                          <div className="flex gap-2">
+                            <button onClick={() => copyCategoryText(expandedCat)} className="px-3 py-1.5 text-xs bg-[#3b82f6] text-white rounded-lg">📋 复制</button>
+                            <button onClick={() => setExpandedCat(null)} className="px-3 py-1.5 text-xs bg-[#1c1c1c] text-[#888] rounded-lg">关闭</button>
+                          </div>
+                        </div>
+                        <div className="p-4 space-y-4">
+                          <div>
+                            <label className="text-sm text-[#888] block mb-2">本周完成情况</label>
+                            <div className="flex gap-2">
                               <textarea
                                 value={category.entry.thisWeek}
-                                onChange={e => updateSJCCell(catIdx, 'thisWeek', e.target.value)}
-                                onFocus={() => setFocusedCell({ catIdx, field: 'thisWeek' })}
-                                onBlur={() => setTimeout(() => setFocusedCell(null), 200)}
-                                placeholder="..."
-                                className="flex-1 bg-[#161616] border border-[#2a2a2a] rounded text-[#c0c0c0] text-xs p-1 resize-none transition-all duration-200 focus:min-h-[80px]"
+                                onChange={e => updateSJCCell(expandedCat, 'thisWeek', e.target.value)}
+                                placeholder="填写本周完成的工作..."
+                                className="flex-1 h-32 bg-[#161616] border border-[#2a2a2a] rounded-xl text-[#e0e0e0] p-3 resize-none"
                               />
                               <button
-                                onClick={() => expandSJCCell(catIdx, 'thisWeek')}
+                                onClick={() => expandSJCCell(expandedCat, 'thisWeek')}
                                 disabled={loading}
-                                className="px-2 text-xs bg-[#22c55e] text-white rounded shrink-0"
+                                className="px-3 py-2 text-sm bg-[#22c55e] text-white rounded-xl shrink-0"
                               >AI</button>
                             </div>
                           </div>
                           <div>
-                            <label className="text-[10px] text-[#888888] block mb-1">累计完成</label>
-                            <div className="flex gap-1">
+                            <label className="text-sm text-[#888] block mb-2">累计完成情况</label>
+                            <div className="flex gap-2">
                               <textarea
                                 value={category.entry.cumulative}
-                                onChange={e => updateSJCCell(catIdx, 'cumulative', e.target.value)}
-                                onFocus={() => setFocusedCell({ catIdx, field: 'cumulative' })}
-                                onBlur={() => setTimeout(() => setFocusedCell(null), 200)}
-                                placeholder="..."
-                                className="flex-1 bg-[#161616] border border-[#2a2a2a] rounded text-[#c0c0c0] text-xs p-1 resize-none transition-all duration-200 focus:min-h-[80px]"
+                                onChange={e => updateSJCCell(expandedCat, 'cumulative', e.target.value)}
+                                placeholder="填写累计完成情况..."
+                                className="flex-1 h-24 bg-[#161616] border border-[#2a2a2a] rounded-xl text-[#e0e0e0] p-3 resize-none"
                               />
                               <button
-                                onClick={() => expandSJCCell(catIdx, 'cumulative')}
+                                onClick={() => expandSJCCell(expandedCat, 'cumulative')}
                                 disabled={loading}
-                                className="px-2 text-xs bg-[#22c55e] text-white rounded shrink-0"
+                                className="px-3 py-2 text-sm bg-[#22c55e] text-white rounded-xl shrink-0"
                               >AI</button>
                             </div>
                           </div>
                           <div>
-                            <label className="text-[10px] text-[#888888] block mb-1">下一步计划</label>
-                            <div className="flex gap-1">
+                            <label className="text-sm text-[#888] block mb-2">下一步工作计划</label>
+                            <div className="flex gap-2">
                               <textarea
                                 value={category.entry.nextWeek}
-                                onChange={e => updateSJCCell(catIdx, 'nextWeek', e.target.value)}
-                                onFocus={() => setFocusedCell({ catIdx, field: 'nextWeek' })}
-                                onBlur={() => setTimeout(() => setFocusedCell(null), 200)}
-                                placeholder="..."
-                                className="flex-1 bg-[#161616] border border-[#2a2a2a] rounded text-[#c0c0c0] text-xs p-1 resize-none transition-all duration-200 focus:min-h-[80px]"
+                                onChange={e => updateSJCCell(expandedCat, 'nextWeek', e.target.value)}
+                                placeholder="填写下周计划..."
+                                className="flex-1 h-24 bg-[#161616] border border-[#2a2a2a] rounded-xl text-[#e0e0e0] p-3 resize-none"
                               />
                               <button
-                                onClick={() => expandSJCCell(catIdx, 'nextWeek')}
+                                onClick={() => expandSJCCell(expandedCat, 'nextWeek')}
                                 disabled={loading}
-                                className="px-2 text-xs bg-[#22c55e] text-white rounded shrink-0"
+                                className="px-3 py-2 text-sm bg-[#22c55e] text-white rounded-xl shrink-0"
                               >AI</button>
                             </div>
                           </div>
-                          <div className="grid grid-cols-2 gap-2">
+                          <div className="grid grid-cols-2 gap-4">
                             <div>
-                              <label className="text-[10px] text-[#888888] block mb-1">问题</label>
+                              <label className="text-sm text-[#888] block mb-2">存在问题</label>
                               <textarea
                                 value={category.entry.issues}
-                                onChange={e => updateSJCCell(catIdx, 'issues', e.target.value)}
-                                placeholder="..."
-                                className="w-full h-10 bg-[#161616] border border-[#2a2a2a] rounded text-[#c0c0c0] text-xs p-1 resize-none"
+                                onChange={e => updateSJCCell(expandedCat, 'issues', e.target.value)}
+                                placeholder="填写问题（如无则填'无'）..."
+                                className="w-full h-20 bg-[#161616] border border-[#2a2a2a] rounded-xl text-[#e0e0e0] p-3 resize-none"
                               />
                             </div>
                             <div>
-                              <label className="text-[10px] text-[#888888] block mb-1">协调</label>
+                              <label className="text-sm text-[#888] block mb-2">需协调解决事项</label>
                               <textarea
                                 value={category.entry.coordination}
-                                onChange={e => updateSJCCell(catIdx, 'coordination', e.target.value)}
-                                placeholder="..."
-                                className="w-full h-10 bg-[#161616] border border-[#2a2a2a] rounded text-[#c0c0c0] text-xs p-1 resize-none"
+                                onChange={e => updateSJCCell(expandedCat, 'coordination', e.target.value)}
+                                placeholder="填写需协调事项（如无则填'无'）..."
+                                className="w-full h-20 bg-[#161616] border border-[#2a2a2a] rounded-xl text-[#e0e0e0] p-3 resize-none"
                               />
                             </div>
                           </div>
-                          <div className="grid grid-cols-2 gap-2">
+                          <div className="grid grid-cols-2 gap-4">
                             <div>
-                              <label className="text-[10px] text-[#888888] block mb-1">分管领导</label>
+                              <label className="text-sm text-[#888] block mb-2">分管领导</label>
                               <input
                                 value={category.entry.leader}
-                                onChange={e => updateSJCCell(catIdx, 'leader', e.target.value)}
-                                className="w-full h-8 bg-[#161616] border border-[#2a2a2a] rounded text-[#c0c0c0] text-xs p-1"
+                                onChange={e => updateSJCCell(expandedCat, 'leader', e.target.value)}
+                                placeholder="填写分管领导姓名..."
+                                className="w-full h-10 bg-[#161616] border border-[#2a2a2a] rounded-xl text-[#e0e0e0] p-3"
                               />
                             </div>
                             <div>
-                              <label className="text-[10px] text-[#888888] block mb-1">责任人</label>
+                              <label className="text-sm text-[#888] block mb-2">责任人</label>
                               <input
                                 value={category.entry.owner}
-                                onChange={e => updateSJCCell(catIdx, 'owner', e.target.value)}
-                                className="w-full h-8 bg-[#161616] border border-[#2a2a2a] rounded text-[#c0c0c0] text-xs p-1"
+                                onChange={e => updateSJCCell(expandedCat, 'owner', e.target.value)}
+                                placeholder="填写责任人姓名..."
+                                className="w-full h-10 bg-[#161616] border border-[#2a2a2a] rounded-xl text-[#e0e0e0] p-3"
                               />
                             </div>
                           </div>
-                          {/* 批量AI */}
                           <button
-                            onClick={() => expandRowContextAware(catIdx)}
+                            onClick={() => expandRowContextAware(expandedCat)}
                             disabled={loading}
-                            className="w-full py-2 text-xs bg-gradient-to-r from-[#22c55e] to-[#16a34a] text-white rounded-lg"
-                          >✨ AI批量填充（上下文感知）</button>
+                            className="w-full py-3 text-sm bg-gradient-to-r from-[#22c55e] to-[#16a34a] text-white rounded-xl"
+                          >✨ AI一键填充（上下文感知）</button>
                         </div>
                       </div>
-                    ))}
-                  </div>
-                )}
-
-                {/* PC端批量AI按钮 */}
-                {!isMobile && (
-                  <div className="flex gap-2 flex-wrap">
-                    {getCurrentSJCData()!.categories.map((category, catIdx) => (
-                      <button
-                        key={catIdx}
-                        onClick={() => expandRowContextAware(catIdx)}
-                        disabled={loading}
-                        className="px-3 py-2 text-xs bg-gradient-to-r from-[#22c55e] to-[#16a34a] text-white rounded-lg"
-                      >
-                        ✨ {category.name} AI填充
-                      </button>
-                    ))}
-                  </div>
-                )}
+                    </div>
+                  );
+                })()}
 
                 <button onClick={generateSJCReport} disabled={loading} className="w-full py-3 bg-gradient-to-r from-[#22c55e] to-[#16a34a] text-white text-sm font-medium rounded-xl hover:opacity-90 disabled:opacity-50 shadow-lg">
                   {loading ? '生成中...' : '生成周报'}
