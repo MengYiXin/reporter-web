@@ -40,9 +40,12 @@ export function DayEditorModal({ isOpen, onClose, onGenerate }: DayEditorModalPr
     const textarea = textareaRef.current;
     if (!textarea || !isOpen) return;
 
+    console.log('[DEBUG] Setting up native event listeners, textarea:', textarea ? 'exists' : 'null');
+
     // 监听原生输入事件
     const handleNativeInput = () => {
       const newValue = textarea.value;
+      console.log('[DEBUG] Native input detected, value length:', newValue.length);
       setInputText(newValue);
       updateDayContent(selectedDay, newValue);
     };
