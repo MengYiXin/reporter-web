@@ -743,7 +743,7 @@ function App() {
               {weekDays.map(day => (
                 <div
                   key={day.date}
-                  onClick={() => setSelectedDay(day.date)}
+                  onClick={() => { setSelectedDay(day.date); setViewMode('input'); }}
                   className={`p-3 sm:p-4 rounded-xl cursor-pointer transition-all text-xs sm:text-sm ${
                     selectedDay === day.date
                       ? 'bg-gradient-to-br from-[#3b82f6] to-[#1d4ed8] text-white shadow-lg shadow-blue-500/20 ring-2 ring-blue-500 ring-offset-2 ring-offset-[#111111]'
