@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 
 type ReportType = 'daily' | 'weekly' | 'monthly';
-type ReportStyle = 'standard' | 'simple';
 type ViewMode = 'calendar' | 'input' | 'result' | 'templates' | 'sjc';
 type AIModel = 'kimi' | 'deepseek' | 'zhipu' | 'qwen' | 'ernie';
 type UserMode = 'm' | 'y' | null;
@@ -17,14 +16,6 @@ interface ModelConfig {
   endpoint: string;
   model: string;
   keyPlaceholder: string;
-}
-
-interface Template {
-  id: string;
-  name: string;
-  description: string;
-  content: string;
-  type: 'daily' | 'weekly' | 'monthly';
 }
 
 // 三江周报单行数据
@@ -70,248 +61,6 @@ const SJC_DEPARTMENTS = [
 const SJC_CATEGORIES = ['考核指标板块\n（营收、毛利）', '回款板块', '业务执行板块', '拓展业务板块', '其他工作'];
 
 const GIST_FILENAME = 'weekly-reporter-data.json';
-const TEMPLATES: Template[] = [
-  {
-    id: 'standard-daily',
-    name: '标准日报',
-    description: '通用标准格式，适合大部分企业',
-    type: 'daily',
-    content: `【姓名日报】
-日期：2024-01-15
-
-一、今日完成工作总结
-1. 完成了项目A的核心功能开发
-2. 参加了团队周例会，讨论了Q2季度计划
-3. 修复了用户反馈的3个bug
-4. 编写了技术文档
-
-二、明日工作计划
-1. 继续项目A的功能测试
-2. 与产品经理对接需求变更
-3. Code Review
-
-三、总结
-今日工作整体顺利，核心功能开发完成度90%。`
-  },
-  {
-    id: 'simple-daily',
-    name: '简洁日报',
-    description: '简短精炼，适合快速汇报',
-    type: 'daily',
-    content: `# 日报 - 2024-01-15
-
-## 完成事项
-- 项目A核心功能开发
-- 团队周例会
-- Bug修复 x3
-
-## 明日计划
-- 功能测试
-- 需求对接
-- Code Review
-
-## 备注/问题
-无阻塞项`
-  },
-  {
-    id: 'tech-daily',
-    name: '技术日报',
-    description: '技术团队专用，突出技术工作',
-    type: 'daily',
-    content: `# 技术日报 | 2024-01-15
-
-## 一、今日工作
-
-### 1. 开发工作
-- [x] 项目A核心模块开发（完成度90%）
-- [x] 代码重构优化，移除冗余逻辑
-
-### 2. 技术研究
-- 调研了React Server Components适用场景
-- 评估了新版本TypeScript 5.3新特性
-
-### 3. 问题修复
-- 修复了登录模块的并发问题
-- 解决了预发布环境内存泄漏
-
-## 二、明日计划
-- [ ] 项目A功能测试
-- [ ] 技术方案设计评审
-- [ ] 参与招聘面试
-
-## 三、学习/沉淀
-- 整理了《微服务架构设计要点》文档大纲`
-  },
-  {
-    id: 'standard-weekly',
-    name: '标准周报',
-    description: '通用周报格式',
-    type: 'weekly',
-    content: `【姓名周报】
-日期：2024-01-15 至 2024-01-19
-
-一、本周完成工作总结
-1. 项目A核心功能开发（5个模块）
-2. 项目B需求分析文档编写
-3. 技术分享会准备与分享
-4. 代码Review 8次
-5. Bug修复12个
-
-二、下周工作计划
-1. 项目A功能测试与优化
-2. 项目C启动与需求对接
-3. 技术文档编写
-4. 团队代码Review
-
-三、总结
-本周整体节奏良好，完成了预期目标。下周重点关注项目A的质量把控和项目C的启动。`
-  },
-  {
-    id: 'simple-weekly',
-    name: '简洁周报',
-    description: '简洁周报，适合快速汇报',
-    type: 'weekly',
-    content: `# 周报汇总 | 2024-01-15~2024-01-19
-
-## 本周完成
-- 项目A核心模块开发
-- 项目B需求分析
-- 技术分享
-- Code Review x8
-- Bug修复 x12
-
-## 下周计划
-- 功能测试
-- 项目C启动
-- 文档编写
-
-## 重点关注
-- 项目A的质量
-- 项目C的需求确认`
-  },
-  {
-    id: 'pm-weekly',
-    name: '项目管理周报',
-    description: '适合PM/项目经理，突出项目进度',
-    type: 'weekly',
-    content: `# 项目管理周报 | 2024-01-15~2024-01-19
-
-## 一、项目概览
-
-| 项目 | 状态 | 进度 | 风险 |
-|------|------|------|------|
-| 项目A | 进行中 | 65% | 低 |
-| 项目B | 需求中 | 20% | 中 |
-| 项目C | 启动中 | 10% | 低 |
-
-## 二、本周完成
-
-### 项目A
-- 核心功能开发完成
-- 测试用例编写80%
-- 发现并修复P0级bug 2个
-
-### 项目B
-- 需求调研完成
-- PRD初稿完成，待评审
-
-### 项目C
-- 立项审批通过
-- 团队组建完成
-
-## 三、风险与问题
-- 项目B：第三方接口文档不完整，可能影响进度
-- 项目C：核心开发人员请假一周，需调整计划
-
-## 四、下周计划
-- 项目A进入测试阶段
-- 项目B需求评审
-- 项目C详细设计
-
-## 五、资源需求
-- 需要增加1名测试人员介入项目A`
-  },
-  {
-    id: 'standard-monthly',
-    name: '标准月报',
-    description: '月度总结报告',
-    type: 'monthly',
-    content: `【姓名月报】
-日期：2024年1月
-
-一、本月完成工作总结
-1. 核心业务开发
-   - 项目A核心模块上线
-   - 项目B第一阶段交付
-
-2. 技术优化
-   - 系统性能优化，响应时间降低40%
-   - 自动化测试覆盖率提升至85%
-
-3. 团队协作
-   - 新人培训与Code Review
-   - 技术分享2次
-
-4. 其他
-   - 参加行业技术峰会
-   - 完成内部技术文档5篇
-
-二、下月工作计划
-1. 项目A上线准备
-2. 项目C启动
-3. 技术栈升级评估
-4. Q2季度OKR制定
-
-三、总结
-本月整体目标达成较好，技术优化效果明显。下月重点关注项目A的上线质量和项目C的启动工作。`
-  },
-  {
-    id: 'executive-monthly',
-    name: '高管月报',
-    description: '适合管理层，突出战略价值',
-    type: 'monthly',
-    content: `# 月度工作汇报 | 2024年1月
-
-## 执行摘要
-本月团队整体表现良好，核心项目推进顺利，重要指标达成率95%。
-
-## 一、关键成果
-
-### 业务成果
-- 项目A提前5天完成核心功能，预计提前2周上线
-- 项目B节省预算15%，效率提升20%
-
-### 团队建设
-- 团队规模从8人扩展到10人
-- 核心成员留存率100%
-- 2人获得晋升
-
-### 技术突破
-- 架构优化带动性能提升40%
-- 技术债偿还比例达到60%
-
-## 二、团队状态
-| 维度 | 评分 | 变化 |
-|------|------|------|
-| 产出 | A | ↑ |
-| 质量 | A- | → |
-| 效率 | B+ | ↑ |
-| 士气 | A | → |
-
-## 三、风险与挑战
-- 关键人才被竞争对手关注，需关注留存
-- 某核心模块技术难度超预期，需增加资源
-
-## 四、下月重点
-1. 确保项目A高质量上线
-2. 完成项目C的立项
-3. 人才梯队建设
-
-## 五、资源需求
-- 申请追加预算用于人才激励
-- 需要市场部配合项目A上线宣传`
-  }
-];
 
 const MODEL_CONFIGS: Record<AIModel, ModelConfig> = {
   kimi: { name: 'Kimi', endpoint: 'https://api.moonshot.cn/v1/chat/completions', model: 'moonshot-v1-8k', keyPlaceholder: 'sk-...' },
@@ -362,7 +111,6 @@ function App() {
   const [userMode, setUserMode] = useState<UserMode>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('calendar');
   const [reportType, setReportType] = useState<ReportType>('daily');
-  const [reportStyle, setReportStyle] = useState<ReportStyle>('standard');
   const [allData, setAllData] = useState<Record<string, DayEntry[]>>({});
   const [selectedDay, setSelectedDay] = useState<string>('');
   const [generatedReport, setGeneratedReport] = useState<string>('');
@@ -381,6 +129,42 @@ function App() {
   const [sjcView, setSjcView] = useState<'edit' | 'archive'>('edit');
   // 展开编辑的板块索引
   const [expandedCat, setExpandedCat] = useState<number | null>(null);
+
+  // M模式相关状态
+  const [expandedDay, setExpandedDay] = useState<string | null>(null); // 展开编辑的日期
+  const [mView, setMView] = useState<'calendar' | 'archive' | 'result'>('calendar'); // M模式视图
+
+  // M模式存档 - 生成的报告历史
+  interface ReportRecord {
+    date: string;
+    type: 'daily' | 'weekly';
+    content: string;
+    generatedAt: string;
+  }
+  const [reportArchive, setReportArchive] = useState<ReportRecord[]>([]);
+
+  // 加载报告存档
+  useEffect(() => {
+    const saved = localStorage.getItem('report_archive');
+    if (saved) {
+      try { setReportArchive(JSON.parse(saved)); } catch (e) {}
+    }
+  }, []);
+
+  // 保存报告存档
+  const saveToArchive = (type: 'daily' | 'weekly', content: string) => {
+    const record: ReportRecord = {
+      date: type === 'daily' ? selectedDay : currentWeekStart,
+      type,
+      content,
+      generatedAt: new Date().toISOString()
+    };
+    setReportArchive(prev => {
+      const updated = [record, ...prev].slice(0, 50); // 保留最近50条
+      localStorage.setItem('report_archive', JSON.stringify(updated));
+      return updated;
+    });
+  };
 
   // 获取当前周数据
   const getCurrentSJCData = (): SJCWeekData | null => {
@@ -733,7 +517,14 @@ function App() {
       const data = await response.json();
       if (data.error) { setGeneratedReport(`API 错误：${data.error.message}`); return; }
       const text = data.choices?.[0]?.message?.content || data.result?.choices?.[0]?.message?.content || '';
-      if (text) { setGeneratedReport(text); setViewMode('result'); }
+      if (text) {
+        setGeneratedReport(text);
+        if (reportType === 'daily' || reportType === 'weekly') {
+          saveToArchive(reportType, text);
+        }
+        if (userMode === 'm') setMView('result');
+        else setViewMode('result');
+      }
       else { setGeneratedReport('生成失败：无法解析响应'); }
     } catch (e) { setGeneratedReport(`生成失败：${e}`); }
     finally { setLoading(false); }
@@ -991,11 +782,6 @@ ${lastCategory?.entry.nextWeek || '无'}
     setLoading(false);
   };
 
-  const copyTemplate = (template: Template) => {
-    navigator.clipboard.writeText(template.content);
-    alert(`"${template.name}" 已复制到剪贴板`);
-  };
-
   const handleCopy = () => {
     navigator.clipboard.writeText(generatedReport);
     alert('已复制到剪贴板');
@@ -1016,6 +802,25 @@ ${lastCategory?.entry.nextWeek || '无'}
     return (
       <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
         <div className="bg-[#111111] rounded-2xl p-8 border border-[#1f1f1f] max-w-md w-full mx-4">
+          {/* Logo */}
+          <div className="flex justify-center mb-6">
+            <div className="relative">
+              <svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect width="64" height="64" rx="12" fill="url(#logoGrad)"/>
+                <path d="M18 18h28v4H22v8h20v4H22v16h-4V18z" fill="white"/>
+                <path d="M38 18h8v4h-4v24h-4V22h-4v-4h4v4z" fill="white"/>
+                <defs>
+                  <linearGradient id="logoGrad" x1="0" y1="0" x2="64" y2="64" gradientUnits="userSpaceOnUse">
+                    <stop stopColor="#3b82f6"/>
+                    <stop offset="1" stopColor="#1d4ed8"/>
+                  </linearGradient>
+                </defs>
+              </svg>
+              <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-[#22c55e] rounded-full flex items-center justify-center">
+                <span className="text-white text-[10px] font-bold">AI</span>
+              </div>
+            </div>
+          </div>
           <h1 className="text-2xl font-semibold text-white text-center mb-2">周报助手</h1>
           <p className="text-[#888888] text-center mb-8">AI 智能报告生成器</p>
           <p className="text-[#666666] text-center mb-6 text-sm">请选择您的身份</p>
@@ -1049,6 +854,18 @@ ${lastCategory?.entry.nextWeek || '无'}
         {/* Header */}
         <div className={`flex flex-wrap items-center justify-between mb-6 ${isMobile ? 'gap-3' : 'mb-8'}`}>
           <div className="flex items-center gap-4">
+            {/* Logo Mark */}
+            <svg width="36" height="36" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" className="flex-shrink-0">
+              <rect width="64" height="64" rx="12" fill="url(#logoGradHeader)"/>
+              <path d="M18 18h28v4H22v8h20v4H22v16h-4V18z" fill="white"/>
+              <path d="M38 18h8v4h-4v24h-4V22h-4v-4h4v4z" fill="white"/>
+              <defs>
+                <linearGradient id="logoGradHeader" x1="0" y1="0" x2="64" y2="64" gradientUnits="userSpaceOnUse">
+                  <stop stopColor="#3b82f6"/>
+                  <stop offset="1" stopColor="#1d4ed8"/>
+                </linearGradient>
+              </defs>
+            </svg>
             <div>
               <div className="flex items-center gap-2">
                 <h1 className={`font-semibold text-white tracking-tight ${isMobile ? 'text-xl' : 'text-2xl'}`}>
@@ -1096,99 +913,166 @@ ${lastCategory?.entry.nextWeek || '无'}
 
         {/* Navigation Tabs */}
         <div className="flex gap-1 mb-4 bg-[#141414] p-1 rounded-xl border border-[#1f1f1f]">
-          {(isYMode ? ['sjc', 'result'] : ['calendar', 'input', 'templates', 'result'] as ViewMode[]).map(tab => (
-            <button key={tab} onClick={() => setViewMode(tab as ViewMode)}
-              className={`flex-1 py-2 px-2 text-xs sm:text-sm font-medium rounded-lg transition-all ${viewMode === tab ? 'bg-[#1c1c1c] text-white border border-[#2a2a2a]' : 'text-[#666666] hover:text-[#b0b0b0]'}`}>
-              {tab === 'sjc' ? '工作记录' : tab === 'calendar' ? '日历' : tab === 'input' ? '输入' : tab === 'templates' ? '模板' : '结果'}
+          {isYMode ? (
+            // Y模式导航
+            <button onClick={() => setViewMode('sjc')}
+              className={`flex-1 py-2 px-2 text-xs sm:text-sm font-medium rounded-lg transition-all ${viewMode === 'sjc' ? 'bg-[#1c1c1c] text-white border border-[#2a2a2a]' : 'text-[#666666] hover:text-[#b0b0b0]'}`}>
+              工作记录
             </button>
-          ))}
+          ) : (
+            // M模式导航
+            <>
+              <button onClick={() => setMView('calendar')}
+                className={`flex-1 py-2 px-2 text-xs sm:text-sm font-medium rounded-lg transition-all ${mView === 'calendar' ? 'bg-[#1c1c1c] text-white border border-[#2a2a2a]' : 'text-[#666666] hover:text-[#b0b0b0]'}`}>
+                日历
+              </button>
+              <button onClick={() => setMView('archive')}
+                className={`flex-1 py-2 px-2 text-xs sm:text-sm font-medium rounded-lg transition-all ${mView === 'archive' ? 'bg-[#1c1c1c] text-white border border-[#2a2a2a]' : 'text-[#666666] hover:text-[#b0b0b0]'}`}>
+                存档
+              </button>
+              <button onClick={() => setMView('result')}
+                className={`flex-1 py-2 px-2 text-xs sm:text-sm font-medium rounded-lg transition-all ${mView === 'result' ? 'bg-[#1c1c1c] text-white border border-[#2a2a2a]' : 'text-[#666666] hover:text-[#b0b0b0]'}`}>
+                结果
+              </button>
+            </>
+          )}
         </div>
 
         {/* 小蒙模式 - Calendar */}
-        {!isYMode && viewMode === 'calendar' && (
-          <div className="bg-[#111111] rounded-2xl p-4 sm:p-6 border border-[#1f1f1f]">
-            <div className="flex items-center justify-between mb-4">
-              <span className="text-xs text-[#3b82f6] font-medium">{formatWeekLabel(currentWeekStart)}</span>
-            </div>
-            <div className="space-y-4">
-              {getWeeks().map((week, weekIdx) => {
-                const isCurrentWeek = weekIdx === 1;
-                const weekData = allData[week.weekStart] || week.days;
-                return (
-                  <div key={week.weekStart}>
-                    <div className={`text-xs font-medium mb-2 ${isCurrentWeek ? 'text-[#3b82f6]' : 'text-[#666666]'}`}>
-                      {week.label} · {formatWeekLabel(week.weekStart)}
-                    </div>
-                    <div className={`grid gap-2 sm:gap-3 ${isMobile ? 'grid-cols-3 sm:grid-cols-5' : 'grid-cols-5'}`}>
-                      {weekData.map(day => (
-                        <div key={day.date} onClick={() => { setSelectedDay(day.date); setCurrentWeekStart(week.weekStart); setViewMode('input'); }}
-                          className={`p-2 sm:p-3 rounded-lg cursor-pointer text-xs ${selectedDay === day.date ? 'bg-gradient-to-br from-[#3b82f6] to-[#1d4ed8] text-white ring-2 ring-blue-500 ring-offset-2 ring-offset-[#111111]' : day.content.trim() ? 'bg-[#1a2618] text-[#4ade80] border border-[#22c55e]/30' : 'bg-[#161616] text-[#666666] hover:bg-[#1c1c1c]'}`}>
-                          <div className="text-xs font-medium opacity-60">{day.dayName}</div>
-                          <div className={`font-semibold mt-0.5 ${isMobile ? 'text-xs' : 'text-sm'}`}>{formatDateDisplay(day.date)}</div>
-                          <div className="mt-1 h-6 sm:h-8 overflow-hidden opacity-70 text-[10px]">{day.content ? (day.content.length > 20 ? day.content.substring(0, 20) + '...' : day.content) : '-'}</div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-            <div className="mt-6 flex gap-3 justify-center">
-              <button onClick={() => { setReportType('daily'); handleGenerate(); }} disabled={loading} className="px-6 py-3 bg-[#22c55e] text-white text-sm font-medium rounded-xl hover:bg-[#16a34a] disabled:opacity-50 shadow-lg shadow-green-500/20">生成日报</button>
-              <button onClick={() => { setReportType('weekly'); handleGenerate(); }} disabled={loading} className="px-6 py-3 bg-[#3b82f6] text-white text-sm font-medium rounded-xl hover:bg-[#2563eb] disabled:opacity-50 shadow-lg shadow-blue-500/20">生成周报</button>
-            </div>
-          </div>
-        )}
-
-        {/* 小蒙模式 - Input */}
-        {!isYMode && viewMode === 'input' && (
-          <div className="bg-[#111111] rounded-2xl p-4 sm:p-6 border border-[#1f1f1f]">
-            <div className="flex flex-wrap gap-2 sm:gap-4 mb-4">
-              <select value={reportType} onChange={e => setReportType(e.target.value as ReportType)} className="px-3 py-2 text-xs sm:text-sm bg-[#161616] border border-[#2a2a2a] rounded-xl text-[#e0e0e0]">
-                <option value="daily">日报</option>
-                <option value="weekly">周报</option>
-              </select>
-              <select value={reportStyle} onChange={e => setReportStyle(e.target.value as ReportStyle)} className="px-3 py-2 text-xs sm:text-sm bg-[#161616] border border-[#2a2a2a] rounded-xl text-[#e0e0e0]">
-                <option value="standard">标准格式</option>
-                <option value="simple">简洁格式</option>
-              </select>
-            </div>
-            {reportType === 'daily' ? (
-              <>
-                <div className="mb-2 text-xs text-[#888888]">当前选择：{selectedDay ? formatDateDisplay(selectedDay) : '请在日历中选择日期'}</div>
-                <textarea placeholder="输入今日工作内容..." value={Object.values(allData).flat().find(d => d.date === selectedDay)?.content || ''} onChange={e => updateDayContent(selectedDay, e.target.value)} className="w-full h-48 sm:h-64 px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm bg-[#161616] border border-[#2a2a2a] rounded-xl text-[#e0e0e0] resize-none" />
-              </>
-            ) : (
-              <div className="mb-2 text-xs text-[#888888]">本周已填写 {Object.values(allData).flat().filter(d => d.content.trim()).length} 天</div>
-            )}
-            <button onClick={handleGenerate} disabled={loading} className="w-full mt-4 py-3 bg-gradient-to-r from-[#3b82f6] to-[#1d4ed8] text-white text-sm font-medium rounded-xl hover:opacity-90 disabled:opacity-50"> {loading ? '生成中...' : '生成报告'} </button>
-          </div>
-        )}
-
-        {/* 小蒙模式 - Templates */}
-        {!isYMode && viewMode === 'templates' && (
+        {!isYMode && mView === 'calendar' && (
           <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-base sm:text-lg font-semibold text-white">报告模板</h2>
-              <select value={reportType} onChange={e => setReportType(e.target.value as ReportType)} className="px-3 py-2 text-xs sm:text-sm bg-[#161616] border border-[#2a2a2a] rounded-xl text-[#e0e0e0]">
-                <option value="daily">日报</option>
-                <option value="weekly">周报</option>
-                <option value="monthly">月报</option>
-              </select>
-            </div>
-            <div className={`grid gap-3 ${isMobile ? 'grid-cols-1' : 'md:grid-cols-2'}`}>
-              {TEMPLATES.filter(t => t.type === reportType).map(template => (
-                <div key={template.id} className="bg-[#111111] rounded-xl p-4 border border-[#1f1f1f]">
-                  <div className="flex items-start justify-between mb-2">
-                    <div>
-                      <h3 className="font-medium text-white text-sm">{template.name}</h3>
-                      <p className="text-xs text-[#666666] mt-0.5">{template.description}</p>
-                    </div>
-                    <button onClick={() => copyTemplate(template)} className="px-2 py-1 text-xs bg-[#1c1c1c] text-[#b0b0b0] rounded-lg border border-[#2a2a2a] hover:text-white">复制</button>
-                  </div>
-                  <pre className="text-xs text-[#888888] whitespace-pre-wrap bg-[#0d0d0d] p-2 sm:p-3 rounded-lg max-h-28 overflow-auto border border-[#1a1a1a]">{template.content}</pre>
+            {/* 顶部操作栏 */}
+            <div className="bg-[#111111] rounded-2xl p-4 border border-[#1f1f1f]">
+              <div className="flex items-center justify-between">
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setMView('archive')}
+                    className="px-3 py-1.5 text-xs bg-[#1c1c1c] text-[#b0b0b0] rounded-lg border border-[#2a2a2a] hover:text-white"
+                  >
+                    📋 历史存档
+                  </button>
                 </div>
-              ))}
+                <div className="flex gap-2">
+                  <button onClick={() => { setReportType('daily'); handleGenerate(); }} disabled={loading} className="px-4 py-2 bg-[#22c55e] text-white text-xs font-medium rounded-lg hover:bg-[#16a34a] disabled:opacity-50">生成日报</button>
+                  <button onClick={() => { setReportType('weekly'); handleGenerate(); }} disabled={loading} className="px-4 py-2 bg-[#3b82f6] text-white text-xs font-medium rounded-lg hover:bg-[#2563eb] disabled:opacity-50">生成周报</button>
+                </div>
+              </div>
+            </div>
+
+            {/* 日历网格 */}
+            <div className="bg-[#111111] rounded-2xl p-4 sm:p-6 border border-[#1f1f1f]">
+              <div className="space-y-4">
+                {getWeeks().map((week, weekIdx) => {
+                  const isCurrentWeek = weekIdx === 1;
+                  const weekData = allData[week.weekStart] || week.days;
+                  return (
+                    <div key={week.weekStart}>
+                      <div className={`text-xs font-medium mb-2 ${isCurrentWeek ? 'text-[#3b82f6]' : 'text-[#666666]'}`}>
+                        {week.label} · {formatWeekLabel(week.weekStart)}
+                      </div>
+                      <div className={`grid gap-2 sm:gap-3 ${isMobile ? 'grid-cols-3 sm:grid-cols-5' : 'grid-cols-5'}`}>
+                        {weekData.map(day => (
+                          <div key={day.date} onClick={() => { setSelectedDay(day.date); setCurrentWeekStart(week.weekStart); setExpandedDay(day.date); }}
+                            className={`p-2 sm:p-3 rounded-lg cursor-pointer text-xs ${selectedDay === day.date ? 'bg-gradient-to-br from-[#3b82f6] to-[#1d4ed8] text-white ring-2 ring-blue-500 ring-offset-2 ring-offset-[#111111]' : day.content.trim() ? 'bg-[#1a2618] text-[#4ade80] border border-[#22c55e]/30' : 'bg-[#161616] text-[#666666] hover:bg-[#1c1c1c]'}`}>
+                            <div className="text-xs font-medium opacity-60">{day.dayName}</div>
+                            <div className={`font-semibold mt-0.5 ${isMobile ? 'text-xs' : 'text-sm'}`}>{formatDateDisplay(day.date)}</div>
+                            <div className="mt-1 h-6 sm:h-8 overflow-hidden opacity-70 text-[10px]">{day.content ? (day.content.length > 20 ? day.content.substring(0, 20) + '...' : day.content) : '-'}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* 本周填写统计 */}
+            <div className="bg-[#111111] rounded-xl p-4 border border-[#1f1f1f] text-center">
+              <span className="text-sm text-[#888]">本周已填写 </span>
+              <span className="text-[#22c55e] font-medium">{Object.values(allData).flat().filter(d => d.content.trim()).length}</span>
+              <span className="text-sm text-[#888]"> 天</span>
+            </div>
+          </div>
+        )}
+
+        {/* 小蒙模式 - Archive */}
+        {!isYMode && mView === 'archive' && (
+          <div className="bg-[#111111] rounded-2xl p-4 border border-[#1f1f1f]">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm font-medium text-white">📋 生成历史</h3>
+              <button onClick={() => setMView('calendar')} className="px-3 py-1.5 text-xs bg-[#1c1c1c] text-[#888] rounded-lg">返回日历</button>
+            </div>
+            {reportArchive.length === 0 ? (
+              <div className="text-center py-8 text-[#666]">暂无历史报告</div>
+            ) : (
+              <div className="space-y-3 max-h-[60vh] overflow-auto">
+                {reportArchive.map((record, idx) => (
+                  <div key={idx} className="bg-[#161616] rounded-xl p-3 border border-[#2a2a2a]">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <span className={`px-2 py-0.5 text-xs rounded ${record.type === 'daily' ? 'bg-[#22c55e]/20 text-[#22c55e]' : 'bg-[#3b82f6]/20 text-[#3b82f6]'}`}>
+                          {record.type === 'daily' ? '日报' : '周报'}
+                        </span>
+                        <span className="text-xs text-[#888]">{record.date}</span>
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => { navigator.clipboard.writeText(record.content); alert('已复制'); }}
+                          className="px-2 py-1 text-xs bg-[#3b82f6]/20 text-[#3b82f6] rounded hover:bg-[#3b82f6]/30"
+                        >复制</button>
+                        <button
+                          onClick={() => { setGeneratedReport(record.content); setMView('result'); }}
+                          className="px-2 py-1 text-xs bg-[#1c1c1c] text-[#888] rounded hover:text-white"
+                        >查看</button>
+                      </div>
+                    </div>
+                    <pre className="text-xs text-[#888] whitespace-pre-wrap line-clamp-3">{record.content.substring(0, 200)}...</pre>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* 小蒙模式 - 结果 */}
+        {!isYMode && mView === 'result' && (
+          <div className="bg-[#111111] rounded-2xl p-4 sm:p-6 border border-[#1f1f1f]">
+            <div className="flex flex-wrap justify-between items-center mb-4 gap-2">
+              <h2 className="text-base sm:text-lg font-semibold text-white">生成结果</h2>
+              <div className="flex gap-2">
+                <button onClick={handleCopy} className="px-3 py-1.5 text-xs bg-[#22c55e] text-white rounded-lg hover:bg-[#16a34a]">📋 复制全文</button>
+                <button onClick={() => setMView('calendar')} className="px-3 py-1.5 text-xs bg-[#1c1c1c] text-[#b0b0b0] rounded-lg border border-[#2a2a2a] hover:text-white">返回</button>
+              </div>
+            </div>
+            <pre className="whitespace-pre-wrap text-xs sm:text-sm text-[#c0c0c0] bg-[#0d0d0d] p-3 sm:p-5 rounded-xl overflow-auto max-h-[500px] leading-relaxed border border-[#1a1a1a]">{generatedReport}</pre>
+          </div>
+        )}
+
+        {/* M模式 - 日期编辑弹窗 */}
+        {expandedDay && (
+          <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4" onClick={() => setExpandedDay(null)}>
+            <div className="bg-[#111111] rounded-2xl border border-[#2a2a2a] w-full max-w-2xl max-h-[90vh] overflow-auto" onClick={e => e.stopPropagation()}>
+              <div className="sticky top-0 bg-[#111111] border-b border-[#2a2a2a] p-4 flex items-center justify-between">
+                <h3 className="text-lg font-medium text-white">
+                  {formatDateDisplay(expandedDay)}
+                </h3>
+                <div className="flex gap-2">
+                  <button onClick={() => setExpandedDay(null)} className="px-3 py-1.5 text-xs bg-[#1c1c1c] text-[#888] rounded-lg">关闭</button>
+                </div>
+              </div>
+              <div className="p-4">
+                <textarea
+                  value={Object.values(allData).flat().find(d => d.date === expandedDay)?.content || ''}
+                  onChange={e => updateDayContent(expandedDay, e.target.value)}
+                  placeholder="输入今日工作内容..."
+                  className="w-full h-64 bg-[#161616] border border-[#2a2a2a] rounded-xl text-[#e0e0e0] p-4 resize-none text-sm"
+                  autoFocus
+                />
+                <div className="mt-4 flex gap-2 justify-end">
+                  <button onClick={() => setExpandedDay(null)} className="px-4 py-2 text-sm bg-[#1c1c1c] text-[#888] rounded-lg hover:text-white">取消</button>
+                  <button onClick={() => { setExpandedDay(null); setReportType('daily'); handleGenerate(); }} disabled={loading} className="px-4 py-2 text-sm bg-[#22c55e] text-white rounded-lg hover:bg-[#16a34a] disabled:opacity-50">生成日报</button>
+                </div>
+              </div>
             </div>
           </div>
         )}
