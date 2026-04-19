@@ -640,14 +640,6 @@ ${content}`;
     let retries = 2;
     const timeoutMs = 30000; // 30秒超时
 
-    const systemPrompt = `你是三江供应链公司办公室秘书，擅长撰写国企风格的正式工作汇报。
-
-【风格要求】
-- 语言正式严谨，符合国企公文规范
-- 善于用"持续推进"、"扎实开展"、"有效落实"等国企常用表达
-- 工作表述客观准确，量化成果（如完成率、覆盖率等）
-- 只输出内容，不做任何说明`;
-
     while (retries >= 0) {
       try {
         const controller = new AbortController();
@@ -715,10 +707,13 @@ ${content}`;
         if (!userPrompt) { setLoading(false); return; }
 
         const config = MODEL_CONFIGS[aiModel];
+        const messages = [
+          { role: 'user', content: `你是国企周报助手。请用正式简洁的语言输出。\n\n${userPrompt}` }
+        ];
         const response = await fetch(config.endpoint, {
           method: 'POST',
           headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ model: config.model, messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: userPrompt }], max_tokens: 512 }),
+          body: JSON.stringify({ model: config.model, messages, max_tokens: 512 }),
           signal: controller.signal
         });
         clearTimeout(timeoutId);
@@ -756,15 +751,6 @@ ${content}`;
     let retries = 2;
     const timeoutMs = 60000; // 60秒超时
 
-    const systemPrompt = `你是三江供应链公司办公室秘书，擅长撰写国企风格的正式工作汇报。
-
-【风格要求】
-- 语言正式严谨，符合国企公文规范
-- 善于用"持续推进"、"扎实开展"、"有效落实"、"稳步推进"等国企常用表达
-- 工作表述客观准确，量化成果（如完成率、覆盖率等）
-- 问题部分实事求是，不回避矛盾
-- 只输出内容，不做任何说明解释`;
-
     while (retries >= 0) {
       try {
         const controller = new AbortController();
@@ -795,10 +781,13 @@ ${lastCategory?.entry.nextWeek || '无'}
 格式：按顺序输出，每项用"【累计完成】"、"【下一步】"、"【问题】"、"【协调】"开头，只输出内容不要其他说明。如果某项没有内容则写"无"。`;
 
         const config = MODEL_CONFIGS[aiModel];
+        const messages = [
+          { role: 'user', content: `你是国企周报助手。请用正式简洁的语言，参考以下要求输出：\n\n${userPrompt}` }
+        ];
         const response = await fetch(config.endpoint, {
           method: 'POST',
           headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ model: config.model, messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: userPrompt }], max_tokens: 1024 }),
+          body: JSON.stringify({ model: config.model, messages, max_tokens: 1024 }),
           signal: controller.signal
         });
         clearTimeout(timeoutId);
