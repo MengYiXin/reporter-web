@@ -9,6 +9,7 @@ interface DayEntry {
   date: string;
   dayName: string;
   content: string;
+  weekIndex: number;
 }
 
 interface ModelConfig {
@@ -315,25 +316,47 @@ const MODEL_CONFIGS: Record<AIModel, ModelConfig> = {
   },
 };
 
-function getWeekDays(baseDate: Date = new Date()): DayEntry[] {
-  const days: DayEntry[] = [];
+function getWeeks(baseDate: Date = new Date()): { weekStart: string; days: DayEntry[] }[] {
+  const weeks: { weekStart: string; days: DayEntry[] }[] = [];
   const dayNames = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
 
-  const date = new Date(baseDate);
-  const dayOfWeek = date.getDay();
+  // Get the Monday of current week
+  const currentDate = new Date(baseDate);
+  const dayOfWeek = currentDate.getDay();
   const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
-  date.setDate(date.getDate() + mondayOffset);
+  currentDate.setDate(currentDate.getDate() + mondayOffset);
 
-  for (let i = 0; i < 5; i++) {
-    const d = new Date(date);
-    d.setDate(d.getDate() + i);
-    days.push({
-      date: d.toISOString().split('T')[0],
-      dayName: dayNames[d.getDay()],
-      content: '',
-    });
+  // Generate 3 weeks: previous, current, next
+  for (let weekOffset = -1; weekOffset <= 1; weekOffset++) {
+    const weekStart = new Date(currentDate);
+    weekStart.setDate(weekStart.getDate() + weekOffset * 7);
+    const weekStartStr = weekStart.toISOString().split('T')[0];
+
+    const days: DayEntry[] = [];
+    for (let i = 0; i < 5; i++) {
+      const d = new Date(weekStart);
+      d.setDate(d.getDate() + i);
+      days.push({
+        date: d.toISOString().split('T')[0],
+        dayName: dayNames[d.getDay()],
+        content: '',
+        weekIndex: weekOffset + 1,
+      });
+    }
+    weeks.push({ weekStart: weekStartStr, days });
   }
-  return days;
+
+  return weeks;
+}
+
+function formatWeekLabel(weekStart: string): string {
+  const d = new Date(weekStart);
+  const month = d.getMonth() + 1;
+  const day = d.getDate();
+  const endDay = new Date(d);
+  endDay.setDate(endDay.getDate() + 4);
+  const endDayStr = `${endDay.getMonth() + 1}/${endDay.getDate()}`;
+  return `${month}/${day} - ${endDayStr}`;
 }
 
 function formatDateDisplay(dateStr: string): string {
@@ -345,11 +368,11 @@ function App() {
   const [viewMode, setViewMode] = useState<ViewMode>('calendar');
   const [reportType, setReportType] = useState<ReportType>('daily');
   const [reportStyle, setReportStyle] = useState<ReportStyle>('standard');
-  const [weekDays, setWeekDays] = useState<DayEntry[]>(getWeekDays());
-  const [selectedDay, setSelectedDay] = useState<string>(weekDays[0]?.date || '');
+  const [allDays, setAllDays] = useState<DayEntry[]>([]);
+  const [selectedDay, setSelectedDay] = useState<string>('');
   const [generatedReport, setGeneratedReport] = useState('');
   const [loading, setLoading] = useState(false);
-  const [currentWeekStart, setCurrentWeekStart] = useState<string>(weekDays[0]?.date || '');
+  const [currentWeekStart, setCurrentWeekStart] = useState<string>('');
   const [apiKey, setApiKey] = useState<string>(localStorage.getItem('ai_api_key') || '');
   const [aiModel, setAiModel] = useState<AIModel>((localStorage.getItem('ai_model') as AIModel) || 'kimi');
   const [ghToken, setGhToken] = useState<string>(localStorage.getItem('gh_token') || '');
@@ -366,51 +389,80 @@ function App() {
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
+  // Initialize weeks
   useEffect(() => {
+    const weeks = getWeeks();
+    const middleWeek = weeks[1];
+    setCurrentWeekStart(middleWeek.weekStart);
+    setAllDays(middleWeek.days);
+
+    // Load saved data for all 3 weeks
     const saved = localStorage.getItem('weekEntries');
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        if (parsed.weekStart === currentWeekStart) {
-          setWeekDays(parsed.days);
+        if (parsed.days) {
+          // Load single week data (backward compatibility)
+          if (parsed.weekStart === middleWeek.weekStart) {
+            setAllDays(parsed.days);
+          }
+        } else if (parsed.weekEntries) {
+          // Load multi-week data from Gist
+          const allDaysFlat: DayEntry[] = [];
+          weeks.forEach(week => {
+            const weekData = parsed.weekEntries[week.weekStart];
+            if (weekData) {
+              weekData.forEach((day: DayEntry) => {
+                allDaysFlat.push({ ...day, weekIndex: weeks.indexOf(week) });
+              });
+            }
+          });
+          if (allDaysFlat.length > 0) {
+            setAllDays(allDaysFlat);
+          }
         }
       } catch (e) {
         console.error('Failed to load saved entries');
       }
     }
-  }, [currentWeekStart]);
+  }, []);
 
+  // Save to localStorage
   useEffect(() => {
-    localStorage.setItem('weekEntries', JSON.stringify({ weekStart: currentWeekStart, days: weekDays }));
-  }, [weekDays, currentWeekStart]);
+    if (allDays.length > 0 && currentWeekStart) {
+      localStorage.setItem('weekEntries', JSON.stringify({
+        weekStart: currentWeekStart,
+        days: allDays
+      }));
+    }
+  }, [allDays, currentWeekStart]);
 
   const goToPrevWeek = () => {
-    const d = new Date(currentWeekStart);
-    d.setDate(d.getDate() - 7);
-    const newWeekStart = d.toISOString().split('T')[0];
-    setCurrentWeekStart(newWeekStart);
-    setWeekDays(getWeekDays(d));
-    setSelectedDay(getWeekDays(d)[0]?.date || '');
+    const weeks = getWeeks();
+    const prevWeek = weeks[0];
+    setCurrentWeekStart(prevWeek.weekStart);
+    setAllDays(prevWeek.days);
+    setSelectedDay('');
   };
 
   const goToNextWeek = () => {
-    const d = new Date(currentWeekStart);
-    d.setDate(d.getDate() + 7);
-    const newWeekStart = d.toISOString().split('T')[0];
-    setCurrentWeekStart(newWeekStart);
-    setWeekDays(getWeekDays(d));
-    setSelectedDay(getWeekDays(d)[0]?.date || '');
+    const weeks = getWeeks();
+    const nextWeek = weeks[2];
+    setCurrentWeekStart(nextWeek.weekStart);
+    setAllDays(nextWeek.days);
+    setSelectedDay('');
   };
 
   const goToToday = () => {
-    const today = new Date();
-    setCurrentWeekStart(today.toISOString().split('T')[0]);
-    setWeekDays(getWeekDays(today));
-    setSelectedDay(getWeekDays(today)[0]?.date || '');
+    const weeks = getWeeks();
+    const todayWeek = weeks[1];
+    setCurrentWeekStart(todayWeek.weekStart);
+    setAllDays(todayWeek.days);
+    setSelectedDay('');
   };
 
   const updateDayContent = (date: string, content: string) => {
-    setWeekDays(weekDays.map(d => (d.date === date ? { ...d, content } : d)));
+    setAllDays(allDays.map(d => (d.date === date ? { ...d, content } : d)));
   };
 
   const uploadToGithub = async () => {
@@ -424,7 +476,7 @@ function App() {
         apiKey,
         aiModel,
         weekEntries: {
-          [currentWeekStart]: weekDays
+          [currentWeekStart]: allDays.map(d => ({ date: d.date, dayName: d.dayName, content: d.content }))
         }
       };
       const content = JSON.stringify(storedData, null, 2);
@@ -497,8 +549,11 @@ function App() {
             setAiModel(parsed.aiModel as AIModel);
             localStorage.setItem('ai_model', parsed.aiModel);
           }
-          if (parsed.weekEntries && parsed.weekEntries[currentWeekStart]) {
-            setWeekDays(parsed.weekEntries[currentWeekStart]);
+          if (parsed.weekEntries) {
+            const entry = Object.values(parsed.weekEntries)[0] as { date: string; dayName: string; content: string }[];
+            if (entry) {
+              setAllDays(entry.map(d => ({ ...d, weekIndex: 1 })));
+            }
           }
           setSyncStatus('success');
           alert('下载成功！');
@@ -547,7 +602,7 @@ function App() {
       let targetDate = '';
 
       if (reportType === 'daily') {
-        const day = weekDays.find(d => d.date === selectedDay);
+        const day = allDays.find(d => d.date === selectedDay);
         if (!day) {
           setGeneratedReport('请选择一个日期');
           return;
@@ -555,13 +610,13 @@ function App() {
         content = day.content;
         targetDate = selectedDay;
       } else {
-        const filledDays = weekDays.filter(d => d.content.trim());
+        const filledDays = allDays.filter(d => d.content.trim());
         if (filledDays.length === 0) {
           setGeneratedReport('请至少填写一天的工作内容');
           return;
         }
         content = filledDays.map(d => `${d.dayName} (${d.date}):\n${d.content}`).join('\n\n');
-        targetDate = `${weekDays[0].date} 至 ${weekDays[4].date}`;
+        targetDate = `${allDays[0].date} 至 ${allDays[4].date}`;
       }
 
       if (!content.trim()) {
@@ -736,43 +791,59 @@ function App() {
                   </svg>
                 </button>
               </div>
-              <span className="text-xs text-[#666666] font-medium">{currentWeekStart}</span>
+              <span className="text-xs text-[#666666] font-medium">
+                {formatWeekLabel(currentWeekStart)}
+              </span>
             </div>
 
-            <div className={`grid gap-2 sm:gap-4 ${isMobile ? 'grid-cols-2 sm:grid-cols-3' : 'grid-cols-5'}`}>
-              {weekDays.map(day => (
-                <div
-                  key={day.date}
-                  onClick={() => { setSelectedDay(day.date); setViewMode('input'); }}
-                  className={`p-3 sm:p-4 rounded-xl cursor-pointer transition-all text-xs sm:text-sm ${
-                    selectedDay === day.date
-                      ? 'bg-gradient-to-br from-[#3b82f6] to-[#1d4ed8] text-white shadow-lg shadow-blue-500/20 ring-2 ring-blue-500 ring-offset-2 ring-offset-[#111111]'
-                      : day.content.trim()
-                      ? 'bg-[#1a2618] text-[#4ade80] border border-[#22c55e]/30'
-                      : 'bg-[#161616] text-[#666666] hover:bg-[#1c1c1c] border border-[#252525]'
-                  }`}
-                >
-                  <div className="text-xs font-medium opacity-60">{day.dayName}</div>
-                  <div className={`font-semibold mt-1 text-inherit ${isMobile ? 'text-sm' : 'text-base'}`}>{formatDateDisplay(day.date)}</div>
-                  <div className="mt-2 sm:mt-3 h-8 sm:h-10 overflow-hidden opacity-70">
-                    {day.content ? (day.content.length > 30 ? day.content.substring(0, 30) + '...' : day.content) : '点击填写'}
+            {/* 3 Weeks Display */}
+            <div className="space-y-4">
+              {getWeeks().map((week, weekIdx) => {
+                const weekLabel = weekIdx === 0 ? '上周' : weekIdx === 1 ? '本周' : '下周';
+                const isCurrentWeek = weekIdx === 1;
+                return (
+                  <div key={week.weekStart}>
+                    <div className={`text-xs font-medium mb-2 ${isCurrentWeek ? 'text-[#3b82f6]' : 'text-[#666666]'}`}>
+                      {weekLabel} · {formatWeekLabel(week.weekStart)}
+                    </div>
+                    <div className={`grid gap-2 sm:gap-3 ${isMobile ? 'grid-cols-3 sm:grid-cols-5' : 'grid-cols-5'}`}>
+                      {week.days.map(day => (
+                        <div
+                          key={day.date}
+                          onClick={() => { setSelectedDay(day.date); setViewMode('input'); }}
+                          className={`p-2 sm:p-3 rounded-lg cursor-pointer transition-all text-xs ${
+                            selectedDay === day.date
+                              ? 'bg-gradient-to-br from-[#3b82f6] to-[#1d4ed8] text-white shadow-lg shadow-blue-500/20 ring-2 ring-blue-500 ring-offset-2 ring-offset-[#111111]'
+                              : day.content.trim()
+                              ? 'bg-[#1a2618] text-[#4ade80] border border-[#22c55e]/30'
+                              : 'bg-[#161616] text-[#666666] hover:bg-[#1c1c1c] border border-[#252525]'
+                          } ${!isCurrentWeek ? 'opacity-60' : ''}`}
+                        >
+                          <div className="text-xs font-medium opacity-60">{day.dayName}</div>
+                          <div className={`font-semibold mt-0.5 text-inherit ${isMobile ? 'text-xs' : 'text-sm'}`}>{formatDateDisplay(day.date)}</div>
+                          <div className="mt-1 h-6 sm:h-8 overflow-hidden opacity-70 text-[10px] sm:text-xs">
+                            {day.content ? (day.content.length > 20 ? day.content.substring(0, 20) + '...' : day.content) : '-'}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
 
-            <div className="mt-4 sm:mt-6 flex gap-2 sm:gap-3 justify-center">
+            <div className="mt-6 flex gap-3 justify-center">
               <button
                 onClick={() => { setReportType('daily'); handleGenerate(); }}
                 disabled={loading}
-                className="px-4 sm:px-6 py-2 sm:py-3 bg-[#22c55e] text-white text-xs sm:text-sm font-medium rounded-xl hover:bg-[#16a34a] transition disabled:opacity-50 shadow-lg shadow-green-500/20"
+                className="px-6 py-3 bg-[#22c55e] text-white text-sm font-medium rounded-xl hover:bg-[#16a34a] transition disabled:opacity-50 shadow-lg shadow-green-500/20"
               >
                 生成日报
               </button>
               <button
                 onClick={() => { setReportType('weekly'); handleGenerate(); }}
                 disabled={loading}
-                className="px-4 sm:px-6 py-2 sm:py-3 bg-[#3b82f6] text-white text-xs sm:text-sm font-medium rounded-xl hover:bg-[#2563eb] transition disabled:opacity-50 shadow-lg shadow-blue-500/20"
+                className="px-6 py-3 bg-[#3b82f6] text-white text-sm font-medium rounded-xl hover:bg-[#2563eb] transition disabled:opacity-50 shadow-lg shadow-blue-500/20"
               >
                 生成周报
               </button>
@@ -800,7 +871,7 @@ function App() {
 
             <textarea
               placeholder={reportType === 'daily' ? '输入今日工作内容...' : reportType === 'weekly' ? '输入本周工作内容汇总...' : '输入本月工作内容汇总...'}
-              value={reportType === 'daily' ? weekDays.find(d => d.date === selectedDay)?.content || '' : weekDays.filter(d => d.content.trim()).map(d => `[${d.dayName}] ${d.content}`).join('\n\n')}
+              value={reportType === 'daily' ? allDays.find(d => d.date === selectedDay)?.content || '' : allDays.filter(d => d.content.trim()).map(d => `[${d.dayName}] ${d.content}`).join('\n\n')}
               onChange={e => { if (reportType === 'daily') updateDayContent(selectedDay, e.target.value); }}
               className="w-full h-48 sm:h-64 px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm bg-[#161616] border border-[#2a2a2a] rounded-xl text-[#e0e0e0] resize-none focus:outline-none focus:ring-1 focus:ring-[#3b82f6]"
             />
@@ -878,7 +949,7 @@ function App() {
         {/* Footer */}
         {viewMode === 'calendar' && (
           <div className="mt-4 sm:mt-6 text-center text-xs text-[#444444]">
-            数据默认保存在本地浏览器 · 点击按钮可同步到 GitHub
+            点击日期卡片可直接填写 · 数据默认保存在本地
           </div>
         )}
       </div>
