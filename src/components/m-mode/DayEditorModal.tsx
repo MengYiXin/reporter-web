@@ -57,7 +57,7 @@ export function DayEditorModal({ isOpen, onClose, onGenerate }: DayEditorModalPr
                 复制
               </button>
             </div>
-            <div className="w-full h-32 bg-[#0d1a0d] border border-[#22c55e]/30 rounded-xl text-[#c0c0c0] p-3 text-sm overflow-auto">
+            <div className="w-full h-48 bg-[#0d1a0d] border border-[#22c55e]/30 rounded-xl text-[#c0c0c0] p-3 text-sm overflow-auto whitespace-pre-wrap">
               {optimizedContent}
             </div>
           </div>
