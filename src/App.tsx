@@ -27,17 +27,29 @@ interface Template {
   type: 'daily' | 'weekly' | 'monthly';
 }
 
-interface SJCEntry {
-  date: string;
-  project: string;
-  category: string;
-  content: string;
-  planDate: string;
-  completed: string;
-  unfinished: string;
+// 三江周报表格数据结构
+interface SJCCellRow {
+  thisWeek: string;
+  cumulative: string;
+  nextWeek: string;
+  issues: string;
+  coordination: string;
+  leader: string;
   owner: string;
-  status: 'done' | 'undone' | '';
 }
+
+interface SJCCategory {
+  name: string;
+  rows: SJCCellRow;
+}
+
+interface SJCWeekData {
+  weekStart: string;
+  department: string;
+  categories: SJCCategory[];
+}
+
+const SJC_CATEGORIES = ['考核指标板块', '回款板块', '业务执行板块', '拓展业务板块', '其他工作板块'];
 
 const GIST_FILENAME = 'weekly-reporter-data.json';
 const TEMPLATES: Template[] = [
@@ -283,21 +295,6 @@ const TEMPLATES: Template[] = [
   }
 ];
 
-const SJC_CATEGORIES = [
-  '办文办会',
-  '后勤工作',
-  '公司设立/划转/股权',
-  '人力资源管理',
-  '安全管理',
-  '信息化建设',
-  '财务相关',
-  '采购管理',
-  '项目管理',
-  '战略规划',
-  '党建相关',
-  '其他'
-];
-
 const MODEL_CONFIGS: Record<AIModel, ModelConfig> = {
   kimi: { name: 'Kimi', endpoint: 'https://api.moonshot.cn/v1/chat/completions', model: 'moonshot-v1-8k', keyPlaceholder: 'sk-...' },
   deepseek: { name: 'DeepSeek', endpoint: 'https://api.deepseek.com/chat/completions', model: 'deepseek-chat', keyPlaceholder: 'sk-...' },
@@ -371,8 +368,44 @@ function App() {
   const [isMobile, setIsMobile] = useState(false);
 
   // 三江相关状态
-  const [sjcEntries, setSjcEntries] = useState<SJCEntry[]>([]);
-  const [sjcWeekStart] = useState<string>('');
+  const [sjcData, setSjcData] = useState<SJCWeekData | null>(null);
+
+  // 初始化三江周报数据
+  const initSJCData = (): SJCWeekData => {
+    const today = new Date();
+    const monday = new Date(today);
+    monday.setDate(today.getDate() - today.getDay() + 1);
+    const weekStart = monday.toISOString().split('T')[0];
+
+    return {
+      weekStart,
+      department: '运营管理二部',
+      categories: SJC_CATEGORIES.map(name => ({
+        name,
+        rows: {
+          thisWeek: '',
+          cumulative: '',
+          nextWeek: '',
+          issues: '',
+          coordination: '',
+          leader: '',
+          owner: ''
+        }
+      }))
+    };
+  };
+
+  // 更新三江表格单元格
+  const updateSJCCell = (categoryIndex: number, field: keyof SJCCellRow, value: string) => {
+    setSjcData(prev => {
+      if (!prev) return prev;
+      const updated = { ...prev };
+      updated.categories = [...prev.categories];
+      updated.categories[categoryIndex] = { ...prev.categories[categoryIndex] };
+      updated.categories[categoryIndex].rows = { ...prev.categories[categoryIndex].rows, [field]: value };
+      return updated;
+    });
+  };
 
   useEffect(() => {
     const checkMobile = () => setIsMobile(window.innerWidth < 768);
@@ -395,18 +428,20 @@ function App() {
 
   useEffect(() => {
     if (!userMode || userMode === 'y') {
-      const savedSjc = localStorage.getItem('sjc_entries');
+      const savedSjc = localStorage.getItem('sjc_data');
       if (savedSjc) {
-        try { setSjcEntries(JSON.parse(savedSjc)); } catch (e) {}
+        try { setSjcData(JSON.parse(savedSjc)); } catch (e) {}
+      } else {
+        setSjcData(initSJCData());
       }
     }
   }, [userMode]);
 
   useEffect(() => {
-    if (userMode === 'y' && sjcWeekStart) {
-      localStorage.setItem('sjc_entries', JSON.stringify(sjcEntries));
+    if (userMode === 'y' && sjcData) {
+      localStorage.setItem('sjc_data', JSON.stringify(sjcData));
     }
-  }, [sjcEntries, sjcWeekStart, userMode]);
+  }, [sjcData, userMode]);
 
   const updateDayContent = (date: string, content: string) => {
     setAllData(prev => {
@@ -425,7 +460,7 @@ function App() {
       const storedData = {
         apiKey, aiModel, userMode,
         weekEntries: allData,
-        sjcEntries: userMode === 'y' ? sjcEntries : undefined
+        sjcData: userMode === 'y' ? sjcData : undefined
       };
       const content = JSON.stringify(storedData, null, 2);
       if (gistId) {
@@ -464,7 +499,7 @@ function App() {
         if (content) {
           const parsed = JSON.parse(content);
           if (parsed.weekEntries) setAllData(parsed.weekEntries);
-          if (parsed.sjcEntries) setSjcEntries(parsed.sjcEntries);
+          if (parsed.sjcData) setSjcData(parsed.sjcData);
           if (parsed.apiKey) { setApiKey(parsed.apiKey); localStorage.setItem('ai_api_key', parsed.apiKey); }
           setSyncStatus('success');
           alert('下载成功！');
@@ -514,23 +549,26 @@ function App() {
     finally { setLoading(false); }
   };
 
+  // 生成三江周报
   const generateSJCReport = async () => {
+    if (!sjcData) return;
     setLoading(true);
     setGeneratedReport('');
     try {
       if (!apiKey.trim()) { setGeneratedReport('请先设置 API Key'); return; }
-      const filledEntries = sjcEntries.filter(e => e.content.trim() || e.completed.trim());
-      if (filledEntries.length === 0) { setGeneratedReport('请至少填写一条工作记录'); return; }
+
+      const hasContent = sjcData.categories.some(c => c.rows.thisWeek.trim() || c.rows.cumulative.trim());
+      if (!hasContent) { setGeneratedReport('请至少填写本周完成情况'); return; }
 
       const weekRange = getWeekRange();
-      let content = filledEntries.map(e =>
-        `【${e.category}】\n项目：${e.project}\n工作内容：${e.content}\n计划完成时间：${e.planDate}\n累计完成情况：${e.completed}\n未完成说明：${e.unfinished || '无'}\n责任人：${e.owner}\n状态：${e.status === 'done' ? '已完成' : '未完成'}`
+      const content = sjcData.categories.map(c =>
+        `【${c.name}】\n本周完成情况：${c.rows.thisWeek || '无'}\n累计完成情况：${c.rows.cumulative || '无'}\n下一步工作计划：${c.rows.nextWeek || '无'}\n存在问题：${c.rows.issues || '无'}\n需协调解决事项：${c.rows.coordination || '无'}\n分管领导：${c.rows.leader || '无'}\n责任人：${c.rows.owner || '无'}`
       ).join('\n\n');
 
       const prompt = `请根据以下三江供应链公司周报内容，生成标准的周报。
 
 日期范围：${weekRange}
-部门：综合行政部
+部门：${sjcData.department}
 
 工作记录：
 ${content}
@@ -539,18 +577,19 @@ ${content}
 
 【三江供应链公司重点工作推进情况表】
 日期范围：${weekRange}
+部门：${sjcData.department}
 
 一、本周完成工作情况
-（按项目分类列出各项工作的完成情况）
+（按板块分类列出各项工作的完成情况）
 
 二、下周工作计划
 （列出各项工作的下周计划）
 
-三、未完成事项说明
-（列出未完成的事项及原因）
+三、存在问题
+（如有）
 
-四、需提请解决事项
-（如有需要领导协调解决的问题）
+四、需协调解决事项
+（如有需领导协调解决的问题）
 
 请直接输出周报内容，不需要其他说明。`;
 
@@ -569,95 +608,64 @@ ${content}
     finally { setLoading(false); }
   };
 
-  // AI填充单条工作记录内容
-  const expandSJCContent = async (index: number) => {
-    const entry = sjcEntries[index];
-    if (!entry.content.trim()) { alert('请先填写简要工作内容'); return; }
+  // AI填充单元格
+  const expandSJCCell = async (categoryIndex: number, field: keyof SJCCellRow) => {
+    if (!sjcData) return;
+    const category = sjcData.categories[categoryIndex];
+    if (!category.rows.thisWeek.trim() && field === 'thisWeek') { alert('请先填写本周工作内容'); return; }
     if (!apiKey.trim()) { alert('请先设置 API Key'); return; }
 
     setLoading(true);
     try {
-      const prompt = `请根据以下工作记录的简要内容，扩写成详细的工作描述。
+      let prompt = '';
+      if (field === 'thisWeek') {
+        prompt = `请根据以下工作板块的名称，生成该板块的本周工作描述。
 
-类别：${entry.category}
-项目：${entry.project}
-简要内容：${entry.content}
-责任人：${entry.owner}
+板块名称：${category.name}
+当前内容：${category.rows.thisWeek || '无'}
 
-请扩写成一段流畅详细的工作描述，包含：
-1. 具体做了什么事情
-2. 过程中遇到的困难及解决方法（如有）
-3. 取得的成果或进展
+请扩写成一段流畅的工作描述，包含具体做了什么、进展如何、取得了什么成果。
 
-只需输出一段文字，不要加标题或说明。`;
+只需输出一段文字，不要加标题。`;
+      } else if (field === 'cumulative') {
+        prompt = `请根据本周工作内容，生成累计完成情况描述。
 
-      const config = MODEL_CONFIGS[aiModel];
-      const response = await fetch(config.endpoint, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model: config.model, messages: [{ role: 'user', content: prompt }], max_tokens: 1024 }),
-      });
-      const data = await response.json();
-      if (data.error) { alert(`API 错误：${data.error.message}`); return; }
-      const text = data.choices?.[0]?.message?.content || '';
-      if (text) {
-        updateSJCEntry(index, 'content', text);
-      } else { alert('生成失败'); }
-    } catch (e) { alert(`生成失败：${e}`); }
-    finally { setLoading(false); }
-  };
+板块：${category.name}
+本周完成：${category.rows.thisWeek}
 
-  // AI填充累计完成情况
-  const expandSJCCompleted = async (index: number) => {
-    const entry = sjcEntries[index];
-    if (!entry.content.trim()) { alert('请先填写工作内容'); return; }
-    if (!apiKey.trim()) { alert('请先设置 API Key'); return; }
+请描述截至目前的工作完成进度。
 
-    setLoading(true);
-    try {
-      const prompt = `请根据以下工作记录，生成累计完成情况描述。
+只需输出一段文字。`;
+      } else if (field === 'nextWeek') {
+        prompt = `请根据本周工作内容，生成下周工作计划。
 
-工作内容：${entry.content}
-项目：${entry.project}
-状态：${entry.status === 'done' ? '已完成' : '进行中'}
+板块：${category.name}
+本周完成：${category.rows.thisWeek}
 
-请描述截至目前的工作完成进度，用流畅的句子表述即可。`;
+请列出下周的工作计划。
 
-      const config = MODEL_CONFIGS[aiModel];
-      const response = await fetch(config.endpoint, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model: config.model, messages: [{ role: 'user', content: prompt }], max_tokens: 512 }),
-      });
-      const data = await response.json();
-      if (data.error) { alert(`API 错误：${data.error.message}`); return; }
-      const text = data.choices?.[0]?.message?.content || '';
-      if (text) {
-        updateSJCEntry(index, 'completed', text);
-      } else { alert('生成失败'); }
-    } catch (e) { alert(`生成失败：${e}`); }
-    finally { setLoading(false); }
-  };
+只需输出一段文字。`;
+      } else if (field === 'issues') {
+        prompt = `请根据本周工作内容，分析可能存在的问题。
 
-  // AI生成未完成情况说明
-  const expandSJCUnfinished = async (index: number) => {
-    const entry = sjcEntries[index];
-    if (!entry.content.trim()) { alert('请先填写工作内容'); return; }
-    if (!apiKey.trim()) { alert('请先设置 API Key'); return; }
+板块：${category.name}
+本周完成：${category.rows.thisWeek}
 
-    setLoading(true);
-    try {
-      const prompt = `请根据以下工作记录，生成未完成情况说明。
+请列出可能存在的问题。
 
-工作内容：${entry.content}
-项目：${entry.project}
+只需输出一段文字。`;
+      } else if (field === 'coordination') {
+        prompt = `请根据本周工作内容，列出需协调解决的事项。
 
-由于该工作未完成，请生成一段合理的解释说明，包括：
-1. 延迟的原因（客观因素）
-2. 当前进度
-3. 后续推进措施
+板块：${category.name}
+本周完成：${category.rows.thisWeek}
 
-请用流畅专业的语言表述。`;
+请列出需领导或跨部门协调解决的事项。
+
+只需输出一段文字。`;
+      }
+
+      if (!prompt) return;
 
       const config = MODEL_CONFIGS[aiModel];
       const response = await fetch(config.endpoint, {
@@ -669,7 +677,7 @@ ${content}
       if (data.error) { alert(`API 错误：${data.error.message}`); return; }
       const text = data.choices?.[0]?.message?.content || '';
       if (text) {
-        updateSJCEntry(index, 'unfinished', text);
+        updateSJCCell(categoryIndex, field, text);
       } else { alert('生成失败'); }
     } catch (e) { alert(`生成失败：${e}`); }
     finally { setLoading(false); }
@@ -693,22 +701,6 @@ ${content}
     a.download = `周报_${new Date().toISOString().split('T')[0]}.md`;
     a.click();
     URL.revokeObjectURL(url);
-  };
-
-  const addSJCEntry = () => {
-    const today = new Date().toISOString().split('T')[0];
-    setSjcEntries(prev => [...prev, {
-      date: today, project: '', category: SJC_CATEGORIES[0], content: '',
-      planDate: '', completed: '', unfinished: '', owner: '', status: ''
-    }]);
-  };
-
-  const updateSJCEntry = (index: number, field: keyof SJCEntry, value: string) => {
-    setSjcEntries(prev => prev.map((e, i) => i === index ? { ...e, [field]: value } : e));
-  };
-
-  const deleteSJCEntry = (index: number) => {
-    setSjcEntries(prev => prev.filter((_, i) => i !== index));
   };
 
   // User Selection Screen
@@ -894,87 +886,83 @@ ${content}
         )}
 
         {/* 圆圆模式 - 工作记录 */}
-        {isYMode && viewMode === 'sjc' && (
+        {isYMode && viewMode === 'sjc' && sjcData && (
           <div className="space-y-4">
             <div className="bg-[#111111] rounded-2xl p-4 sm:p-6 border border-[#1f1f1f]">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold text-white">本周工作记录</h2>
+                <h2 className="text-lg font-semibold text-white">重点工作推进情况表</h2>
                 <span className="text-xs text-[#888888]">{getWeekRange()}</span>
               </div>
-              <p className="text-xs text-[#666666] mb-4">三江供应链公司重点工作推进情况表格式</p>
-              <button onClick={addSJCEntry} className="px-4 py-2 bg-[#22c55e] text-white text-sm rounded-xl hover:bg-[#16a34a] transition">+ 添加工作记录</button>
+              <div className="flex items-center gap-2 mb-2">
+                <label className="text-xs text-[#888888]">部门：</label>
+                <input
+                  value={sjcData.department}
+                  onChange={e => setSjcData(prev => prev ? { ...prev, department: e.target.value } : prev)}
+                  className="px-2 py-1 text-xs bg-[#161616] border border-[#2a2a2a] rounded text-[#e0e0e0]"
+                />
+              </div>
             </div>
 
-            <div className="space-y-3">
-              {sjcEntries.length === 0 && (
-                <div className="bg-[#111111] rounded-xl p-8 border border-[#1f1f1f] text-center">
-                  <p className="text-[#666666]">暂无工作记录，点击上方"添加工作记录"开始</p>
-                </div>
-              )}
-              {sjcEntries.map((entry, index) => (
-                <div key={index} className="bg-[#111111] rounded-xl p-4 border border-[#1f1f1f]">
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="text-sm font-medium text-[#3b82f6]">记录 {index + 1}</span>
-                    <button onClick={() => deleteSJCEntry(index)} className="px-2 py-1 text-xs bg-red-500/20 text-red-400 rounded hover:bg-red-500/30">删除</button>
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="text-xs text-[#888888] block mb-1">工作分类</label>
-                      <select value={entry.category} onChange={e => updateSJCEntry(index, 'category', e.target.value)} className="w-full px-2 py-1.5 text-xs bg-[#161616] border border-[#2a2a2a] rounded-lg text-[#e0e0e0]">
-                        {SJC_CATEGORIES.map(cat => <option key={cat} value={cat}>{cat}</option>)}
-                      </select>
-                    </div>
-                    <div>
-                      <label className="text-xs text-[#888888] block mb-1">责任人</label>
-                      <input value={entry.owner} onChange={e => updateSJCEntry(index, 'owner', e.target.value)} placeholder="姓名" className="w-full px-2 py-1.5 text-xs bg-[#161616] border border-[#2a2a2a] rounded-lg text-[#e0e0e0]" />
-                    </div>
-                    <div className="col-span-2">
-                      <label className="text-xs text-[#888888] block mb-1">项目/工作事项</label>
-                      <input value={entry.project} onChange={e => updateSJCEntry(index, 'project', e.target.value)} placeholder="简要描述工作项目" className="w-full px-2 py-1.5 text-xs bg-[#161616] border border-[#2a2a2a] rounded-lg text-[#e0e0e0]" />
-                    </div>
-                    <div className="col-span-2">
-                      <label className="text-xs text-[#888888] block mb-1">本周重点工作内容 <span className="text-[#22c55e]">(可AI填充)</span></label>
-                      <div className="flex gap-2">
-                        <textarea value={entry.content} onChange={e => updateSJCEntry(index, 'content', e.target.value)} placeholder="简要描述本周工作，或点击AI填充..." className="flex-1 h-20 px-2 py-1.5 text-xs bg-[#161616] border border-[#2a2a2a] rounded-lg text-[#e0e0e0] resize-none" />
-                        <button onClick={() => expandSJCContent(index)} disabled={loading} className="px-3 py-1.5 text-xs bg-[#22c55e] text-white rounded-lg hover:bg-[#16a34a] disabled:opacity-50">AI填充</button>
-                      </div>
-                    </div>
-                    <div>
-                      <label className="text-xs text-[#888888] block mb-1">计划完成时间</label>
-                      <input type="date" value={entry.planDate} onChange={e => updateSJCEntry(index, 'planDate', e.target.value)} className="w-full px-2 py-1.5 text-xs bg-[#161616] border border-[#2a2a2a] rounded-lg text-[#e0e0e0]" />
-                    </div>
-                    <div>
-                      <label className="text-xs text-[#888888] block mb-1">状态</label>
-                      <select value={entry.status} onChange={e => updateSJCEntry(index, 'status', e.target.value)} className="w-full px-2 py-1.5 text-xs bg-[#161616] border border-[#2a2a2a] rounded-lg text-[#e0e0e0]">
-                        <option value="">请选择</option>
-                        <option value="done">已完成</option>
-                        <option value="undone">未完成</option>
-                      </select>
-                    </div>
-                    <div className="col-span-2">
-                      <label className="text-xs text-[#888888] block mb-1">截至本周累计完成情况 <span className="text-[#22c55e]">(可AI填充)</span></label>
-                      <div className="flex gap-2">
-                        <textarea value={entry.completed} onChange={e => updateSJCEntry(index, 'completed', e.target.value)} placeholder="描述完成进度..." className="flex-1 h-16 px-2 py-1.5 text-xs bg-[#161616] border border-[#2a2a2a] rounded-lg text-[#e0e0e0] resize-none" />
-                        <button onClick={() => expandSJCCompleted(index)} disabled={loading} className="px-3 py-1 text-xs bg-[#3b82f6] text-white rounded-lg hover:bg-[#2563eb] disabled:opacity-50">AI填充</button>
-                      </div>
-                    </div>
-                    <div className="col-span-2">
-                      <label className="text-xs text-[#888888] block mb-1">未完成情况说明 <span className="text-[#22c55e]">(可AI生成)</span></label>
-                      <div className="flex gap-2">
-                        <textarea value={entry.unfinished} onChange={e => updateSJCEntry(index, 'unfinished', e.target.value)} placeholder="如未完成，说明原因..." className="flex-1 h-16 px-2 py-1.5 text-xs bg-[#161616] border border-[#2a2a2a] rounded-lg text-[#e0e0e0] resize-none" />
-                        <button onClick={() => expandSJCUnfinished(index)} disabled={loading} className="px-3 py-1 text-xs bg-[#f59e0b] text-white rounded-lg hover:bg-[#d97706] disabled:opacity-50">AI生成</button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ))}
+            {/* 表格 */}
+            <div className="bg-[#111111] rounded-2xl border border-[#1f1f1f] overflow-x-auto">
+              <table className="w-full text-xs min-w-[900px]">
+                <thead>
+                  <tr className="bg-[#1a1a1a] text-[#888888]">
+                    <th className="px-2 py-2 text-center font-medium border border-[#2a2a2a] w-10">序号</th>
+                    <th className="px-2 py-2 text-center font-medium border border-[#2a2a2a] w-28">部门</th>
+                    <th className="px-2 py-2 text-center font-medium border border-[#2a2a2a] w-28">重点工作事项</th>
+                    <th className="px-2 py-2 text-center font-medium border border-[#2a2a2a] w-44">本周完成情况</th>
+                    <th className="px-2 py-2 text-center font-medium border border-[#2a2a2a] w-44">累计完成情况</th>
+                    <th className="px-2 py-2 text-center font-medium border border-[#2a2a2a] w-44">下一步工作计划</th>
+                    <th className="px-2 py-2 text-center font-medium border border-[#2a2a2a] w-36">存在问题</th>
+                    <th className="px-2 py-2 text-center font-medium border border-[#2a2a2a] w-36">需协调解决事项</th>
+                    <th className="px-2 py-2 text-center font-medium border border-[#2a2a2a] w-20">分管领导</th>
+                    <th className="px-2 py-2 text-center font-medium border border-[#2a2a2a] w-16">责任人</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {sjcData.categories.map((category, catIdx) => (
+                    <tr key={catIdx} className={catIdx % 2 === 0 ? 'bg-[#141414]' : 'bg-[#111111]'}>
+                      <td className="px-2 py-1 text-center text-[#666666] border border-[#2a2a2a]">{catIdx + 1}</td>
+                      <td className="px-2 py-1 text-center text-[#e0e0e0] border border-[#2a2a2a]" rowSpan={5}>
+                        <input
+                          value={catIdx === 0 ? sjcData.department : ''}
+                          onChange={e => { if (catIdx === 0) setSjcData(prev => prev ? { ...prev, department: e.target.value } : prev); }}
+                          className="w-full bg-transparent text-center text-[#e0e0e0] outline-none"
+                          readOnly={catIdx !== 0}
+                        />
+                      </td>
+                      <td className="px-2 py-1 text-left text-[#22c55e] border border-[#2a2a2a] font-medium">
+                        {category.name}
+                      </td>
+                      {(['thisWeek', 'cumulative', 'nextWeek', 'issues', 'coordination', 'leader', 'owner'] as const).map((field) => (
+                        <td key={field} className="px-1 py-1 border border-[#2a2a2a]">
+                          <div className="flex gap-1">
+                            {field === 'thisWeek' || field === 'cumulative' || field === 'nextWeek' ? (
+                              <button
+                                onClick={() => expandSJCCell(catIdx, field)}
+                                disabled={loading}
+                                className="px-1 py-0.5 text-[8px] bg-[#22c55e]/20 text-[#22c55e] rounded hover:bg-[#22c55e]/30 shrink-0"
+                              >AI</button>
+                            ) : null}
+                            <textarea
+                              value={category.rows[field]}
+                              onChange={e => updateSJCCell(catIdx, field, e.target.value)}
+                              placeholder="..."
+                              className="w-full h-10 bg-transparent text-[#c0c0c0] resize-none outline-none text-[10px]"
+                            />
+                          </div>
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
 
-            {sjcEntries.length > 0 && (
-              <button onClick={generateSJCReport} disabled={loading} className="w-full py-3 bg-gradient-to-r from-[#22c55e] to-[#16a34a] text-white text-sm font-medium rounded-xl hover:opacity-90 disabled:opacity-50 shadow-lg">
-                {loading ? '生成中...' : '生成周报'}
-              </button>
-            )}
+            <button onClick={generateSJCReport} disabled={loading} className="w-full py-3 bg-gradient-to-r from-[#22c55e] to-[#16a34a] text-white text-sm font-medium rounded-xl hover:opacity-90 disabled:opacity-50 shadow-lg">
+              {loading ? '生成中...' : '生成周报'}
+            </button>
           </div>
         )}
 
