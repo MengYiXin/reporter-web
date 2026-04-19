@@ -1,3 +1,4 @@
+import { useState, useEffect, useRef } from 'react';
 import { useAppStore } from '../../store/useAppStore';
 import { Modal } from '../common/Modal';
 import { formatDateDisplay } from '../../utils/date';
@@ -18,6 +19,16 @@ export function DayEditorModal({ isOpen, onClose, onGenerate }: DayEditorModalPr
   const content = dayEntry?.content || '';
   const optimizedContent = dayEntry?.optimizedContent || '';
 
+  const [inputText, setInputText] = useState(content);
+  const inputRef = useRef<HTMLDivElement>(null);
+
+  // 每次打开弹窗时同步最新内容
+  useEffect(() => {
+    if (isOpen) {
+      setInputText(dayEntry?.content || '');
+    }
+  }, [isOpen, selectedDay, dayEntry?.content]);
+
   const handleCopy = (text: string) => {
     navigator.clipboard.writeText(text);
     alert('已复制到剪贴板');
@@ -26,30 +37,27 @@ export function DayEditorModal({ isOpen, onClose, onGenerate }: DayEditorModalPr
   const handlePaste = async () => {
     try {
       const text = await navigator.clipboard.readText();
-      updateDayContent(selectedDay, content + text);
+      const newText = inputText + text;
+      setInputText(newText);
+      updateDayContent(selectedDay, newText);
       alert('粘贴成功');
     } catch (err) {
-      // 某些浏览器不支持readText，降级处理
-      const textArea = document.createElement('textarea');
-      textArea.value = '';
-      textArea.style.position = 'fixed';
-      textArea.style.left = '-9999px';
-      document.body.appendChild(textArea);
-      textArea.focus();
-      try {
-        document.execCommand('paste');
-        const pasted = textArea.value;
-        if (pasted) {
-          updateDayContent(selectedDay, content + pasted);
-          alert('粘贴成功');
-        } else {
-          alert('请长按输入框使用系统粘贴');
-        }
-      } catch {
-        alert('请长按输入框使用系统粘贴');
-      }
-      document.body.removeChild(textArea);
+      alert('粘贴失败，请尝试长按输入框粘贴');
     }
+  };
+
+  // 处理输入变化
+  const handleInput = () => {
+    const text = inputRef.current?.innerText || '';
+    setInputText(text);
+    updateDayContent(selectedDay, text);
+  };
+
+  // 失去焦点时保存
+  const handleBlur = () => {
+    const text = inputRef.current?.innerText || '';
+    setInputText(text);
+    updateDayContent(selectedDay, text);
   };
 
   return (
@@ -67,19 +75,28 @@ export function DayEditorModal({ isOpen, onClose, onGenerate }: DayEditorModalPr
                 📋 粘贴
               </button>
               <button
-                onClick={() => handleCopy(content)}
+                onClick={() => handleCopy(inputText)}
                 className="text-xs text-[#3b82f6] hover:text-[#2563eb]"
               >
                 复制
               </button>
             </div>
           </div>
-          <textarea
-            value={content}
-            onChange={(e) => updateDayContent(selectedDay, e.target.value)}
-            placeholder="输入今日工作内容，或点击粘贴按钮从剪贴板导入"
-            className="w-full h-40 bg-[#161616] border border-[#2a2a2a] rounded-xl text-[#e0e0e0] p-3 resize-none text-sm"
-          />
+          {/* 使用 contentEditable div 替代 textarea */}
+          <div
+            ref={inputRef}
+            contentEditable
+            onInput={handleInput}
+            onBlur={handleBlur}
+            suppressContentEditableWarning
+            className="w-full min-h-[120px] h-auto bg-[#161616] border border-[#2a2a2a] rounded-xl text-[#e0e0e0] p-3 text-sm overflow-auto outline-none focus:border-[#3b82f6]"
+            style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
+          >
+            {inputText}
+          </div>
+          <div className="mt-1 text-xs text-[#666]">
+            点击输入框直接打字，或点击上方粘贴按钮
+          </div>
         </div>
 
         {/* 优化后内容 */}
@@ -113,7 +130,7 @@ export function DayEditorModal({ isOpen, onClose, onGenerate }: DayEditorModalPr
               onClose();
               onGenerate();
             }}
-            disabled={loading || !content.trim()}
+            disabled={loading || !inputText.trim()}
             className="px-4 py-2 text-sm bg-[#22c55e] text-white rounded-lg hover:bg-[#16a34a] disabled:opacity-50"
           >
             {loading ? '生成中...' : '生成/优化日报'}
