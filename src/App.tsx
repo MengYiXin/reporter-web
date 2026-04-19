@@ -49,7 +49,7 @@ interface SJCWeekData {
   categories: SJCCategory[];
 }
 
-const SJC_CATEGORIES = ['考核指标板块', '回款板块', '业务执行板块', '拓展业务板块', '其他工作板块'];
+const SJC_CATEGORIES = ['考核指标板块\n（营收、毛利）', '回款板块', '业务执行板块', '拓展业务板块', '其他工作'];
 
 const GIST_FILENAME = 'weekly-reporter-data.json';
 const TEMPLATES: Template[] = [
@@ -395,8 +395,13 @@ function App() {
     };
   };
 
+  // 保存状态
+  const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'error'>('saved');
+  const [lastSaved, setLastSaved] = useState<string>('');
+
   // 更新三江表格单元格
   const updateSJCCell = (categoryIndex: number, field: keyof SJCCellRow, value: string) => {
+    setSaveStatus('saving');
     setSjcData(prev => {
       if (!prev) return prev;
       const updated = { ...prev };
@@ -437,11 +442,66 @@ function App() {
     }
   }, [userMode]);
 
+  // 自动保存到 localStorage（防抖）
   useEffect(() => {
-    if (userMode === 'y' && sjcData) {
-      localStorage.setItem('sjc_data', JSON.stringify(sjcData));
-    }
+    if (userMode !== 'y' || !sjcData) return;
+    const timer = setTimeout(() => {
+      try {
+        localStorage.setItem('sjc_data', JSON.stringify(sjcData));
+        setSaveStatus('saved');
+        setLastSaved(new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }));
+      } catch (e) {
+        setSaveStatus('error');
+      }
+    }, 500);
+    return () => clearTimeout(timer);
   }, [sjcData, userMode]);
+
+  // 同步到 GitHub Gist（带重试）
+  const uploadToGithub = async () => {
+    if (!ghToken) { alert('请先输入 GitHub Token'); return; }
+    setSyncStatus('syncing');
+    setSaveStatus('saving');
+    let retries = 2;
+    while (retries >= 0) {
+      try {
+        const storedData = {
+          apiKey, aiModel, userMode,
+          weekEntries: allData,
+          sjcData: userMode === 'y' ? sjcData : undefined
+        };
+        const content = JSON.stringify(storedData, null, 2);
+        if (gistId) {
+          const response = await fetch(`https://api.github.com/gists/${gistId}`, {
+            method: 'PATCH', headers: { Authorization: `Bearer ${ghToken}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ files: { [GIST_FILENAME]: { content } } })
+          });
+          if (!response.ok) throw new Error('Upload failed');
+        } else {
+          const response = await fetch('https://api.github.com/gists', {
+            method: 'POST', headers: { Authorization: `Bearer ${ghToken}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ description: 'Weekly Reporter Data', public: false, files: { [GIST_FILENAME]: { content } } })
+          });
+          const data = await response.json();
+          if (!response.ok) throw new Error('Upload failed');
+          setGistId(data.id);
+          localStorage.setItem('gist_id', data.id);
+        }
+        setSyncStatus('success');
+        setSaveStatus('saved');
+        alert('上传成功！');
+        break;
+      } catch (e) {
+        retries--;
+        if (retries < 0) {
+          setSyncStatus('error');
+          setSaveStatus('error');
+          alert('上传失败，请检查网络后重试');
+        }
+      }
+    }
+    setTimeout(() => setSyncStatus('idle'), 2000);
+  };
 
   const updateDayContent = (date: string, content: string) => {
     setAllData(prev => {
@@ -451,39 +511,6 @@ function App() {
       });
       return updated;
     });
-  };
-
-  const uploadToGithub = async () => {
-    if (!ghToken) { alert('请先输入 GitHub Token'); return; }
-    setSyncStatus('syncing');
-    try {
-      const storedData = {
-        apiKey, aiModel, userMode,
-        weekEntries: allData,
-        sjcData: userMode === 'y' ? sjcData : undefined
-      };
-      const content = JSON.stringify(storedData, null, 2);
-      if (gistId) {
-        await fetch(`https://api.github.com/gists/${gistId}`, {
-          method: 'PATCH', headers: { Authorization: `Bearer ${ghToken}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ files: { [GIST_FILENAME]: { content } } })
-        });
-      } else {
-        const response = await fetch('https://api.github.com/gists', {
-          method: 'POST', headers: { Authorization: `Bearer ${ghToken}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ description: 'Weekly Reporter Data', public: false, files: { [GIST_FILENAME]: { content } } })
-        });
-        const data = await response.json();
-        if (data.id) { setGistId(data.id); localStorage.setItem('gist_id', data.id); }
-      }
-      setSyncStatus('success');
-      alert('上传成功！');
-      setTimeout(() => setSyncStatus('idle'), 2000);
-    } catch (e) {
-      setSyncStatus('error');
-      alert('上传失败！');
-      setTimeout(() => setSyncStatus('idle'), 2000);
-    }
   };
 
   const downloadFromGithub = async () => {
@@ -890,16 +917,25 @@ ${content}
           <div className="space-y-4">
             <div className="bg-[#111111] rounded-2xl p-4 sm:p-6 border border-[#1f1f1f]">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold text-white">重点工作推进情况表</h2>
-                <span className="text-xs text-[#888888]">{getWeekRange()}</span>
-              </div>
-              <div className="flex items-center gap-2 mb-2">
-                <label className="text-xs text-[#888888]">部门：</label>
-                <input
-                  value={sjcData.department}
-                  onChange={e => setSjcData(prev => prev ? { ...prev, department: e.target.value } : prev)}
-                  className="px-2 py-1 text-xs bg-[#161616] border border-[#2a2a2a] rounded text-[#e0e0e0]"
-                />
+                <div>
+                  <h2 className="text-lg font-semibold text-white">重点工作推进情况表</h2>
+                  <div className="flex items-center gap-2 mt-1">
+                    <label className="text-xs text-[#888888]">部门：</label>
+                    <input
+                      value={sjcData.department}
+                      onChange={e => { setSaveStatus('saving'); setSjcData(prev => prev ? { ...prev, department: e.target.value } : prev); }}
+                      className="px-2 py-1 text-xs bg-[#161616] border border-[#2a2a2a] rounded text-[#e0e0e0]"
+                    />
+                  </div>
+                </div>
+                <div className="text-right">
+                  <span className="text-xs text-[#888888]">{getWeekRange()}</span>
+                  <div className="mt-1 text-xs">
+                    {saveStatus === 'saving' && <span className="text-[#f59e0b]">保存中...</span>}
+                    {saveStatus === 'saved' && <span className="text-[#22c55e]">已保存 {lastSaved}</span>}
+                    {saveStatus === 'error' && <span className="text-red-500">保存失败</span>}
+                  </div>
+                </div>
               </div>
             </div>
 
