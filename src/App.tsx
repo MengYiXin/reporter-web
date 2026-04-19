@@ -3,12 +3,53 @@ import { useState, useEffect } from 'react';
 type ReportType = 'daily' | 'weekly' | 'monthly';
 type ReportStyle = 'standard' | 'simple';
 type ViewMode = 'calendar' | 'input' | 'result';
+type AIModel = 'kimi' | 'deepseek' | 'zhipu' | 'qwen' | 'ernie';
 
 interface DayEntry {
   date: string;
   dayName: string;
   content: string;
 }
+
+interface ModelConfig {
+  name: string;
+  endpoint: string;
+  model: string;
+  keyPlaceholder: string;
+}
+
+const MODEL_CONFIGS: Record<AIModel, ModelConfig> = {
+  kimi: {
+    name: 'Kimi (Moonshot)',
+    endpoint: 'https://api.moonshot.cn/v1/chat/completions',
+    model: 'moonshot-v1-8k',
+    keyPlaceholder: 'sk-... (Kimi API Key)',
+  },
+  deepseek: {
+    name: 'DeepSeek',
+    endpoint: 'https://api.deepseek.com/chat/completions',
+    model: 'deepseek-chat',
+    keyPlaceholder: 'sk-... (DeepSeek API Key)',
+  },
+  zhipu: {
+    name: '智谱 GLM',
+    endpoint: 'https://open.bigmodel.cn/api/paas/v4/chat/completions',
+    model: 'glm-4-flash',
+    keyPlaceholder: 'sk-... (智谱 API Key)',
+  },
+  qwen: {
+    name: '阿里 Qwen',
+    endpoint: 'https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation',
+    model: 'qwen-turbo',
+    keyPlaceholder: 'sk-... (阿里 API Key)',
+  },
+  ernie: {
+    name: '百度文心',
+    endpoint: 'https://qianfan.baidutop.com/v2/chat/completions',
+    model: 'ernie-4.0-8k-lark',
+    keyPlaceholder: 'sk-... (百度 API Key)',
+  },
+};
 
 function getWeekDays(baseDate: Date = new Date()): DayEntry[] {
   const days: DayEntry[] = [];
@@ -45,7 +86,8 @@ function App() {
   const [generatedReport, setGeneratedReport] = useState('');
   const [loading, setLoading] = useState(false);
   const [currentWeekStart, setCurrentWeekStart] = useState<string>(weekDays[0]?.date || '');
-  const [apiKey, setApiKey] = useState<string>(localStorage.getItem('claude_api_key') || '');
+  const [apiKey, setApiKey] = useState<string>(localStorage.getItem('ai_api_key') || '');
+  const [aiModel, setAiModel] = useState<AIModel>((localStorage.getItem('ai_model') as AIModel) || 'kimi');
 
   useEffect(() => {
     const saved = localStorage.getItem('weekEntries');
@@ -277,16 +319,16 @@ ${content}
       }
 
       const prompt = getReportPrompt(reportType, reportStyle, targetDate, content);
+      const config = MODEL_CONFIGS[aiModel];
 
-      const response = await fetch('https://api.anthropic.com/v1/messages', {
+      const response = await fetch(config.endpoint, {
         method: 'POST',
         headers: {
-          'x-api-key': apiKey,
-          'anthropic-version': '2023-06-01',
-          'content-type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'claude-haiku-4-5-20251101',
+          model: config.model,
           messages: [{ role: 'user', content: prompt }],
           max_tokens: 2048,
         }),
@@ -295,16 +337,24 @@ ${content}
       const data = await response.json();
 
       if (data.error) {
-        setGeneratedReport(`API 错误：${data.error.message}`);
+        setGeneratedReport(`API 错误：${data.error.message || JSON.stringify(data.error)}`);
         return;
       }
 
-      const text = data.content?.[0]?.text;
+      let text = '';
+      if (aiModel === 'kimi' || aiModel === 'deepseek' || aiModel === 'qwen') {
+        text = data.choices?.[0]?.message?.content;
+      } else if (aiModel === 'zhipu') {
+        text = data.choices?.[0]?.message?.content;
+      } else if (aiModel === 'ernie') {
+        text = data.result?.choices?.[0]?.message?.content;
+      }
+
       if (text) {
         setGeneratedReport(text);
         setViewMode('result');
       } else {
-        setGeneratedReport('生成失败：无法解析响应');
+        setGeneratedReport('生成失败：无法解析响应\n' + JSON.stringify(data).substring(0, 200));
       }
     } catch (e) {
       setGeneratedReport(`生成失败：${e}`);
@@ -334,15 +384,28 @@ ${content}
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-2xl font-bold text-center text-accent">周报助手</h1>
           <div className="flex gap-2 items-center">
-            <span className="text-muted text-sm">API Key:</span>
+            <select
+              value={aiModel}
+              onChange={e => {
+                setAiModel(e.target.value as AIModel);
+                localStorage.setItem('ai_model', e.target.value);
+              }}
+              className="px-3 py-1 text-sm rounded bg-card text-text border border-muted"
+            >
+              <option value="kimi">Kimi</option>
+              <option value="deepseek">DeepSeek</option>
+              <option value="zhipu">智谱 GLM</option>
+              <option value="qwen">阿里 Qwen</option>
+              <option value="ernie">百度文心</option>
+            </select>
             <input
               type="password"
               value={apiKey}
               onChange={e => {
                 setApiKey(e.target.value);
-                localStorage.setItem('claude_api_key', e.target.value);
+                localStorage.setItem('ai_api_key', e.target.value);
               }}
-              placeholder="sk-ant-..."
+              placeholder={MODEL_CONFIGS[aiModel].keyPlaceholder}
               className="px-3 py-1 text-sm rounded bg-card text-text border border-muted w-48"
             />
           </div>
@@ -354,28 +417,28 @@ ${content}
               onClick={() => setViewMode('calendar')}
               className={`px-4 py-2 rounded-lg transition ${viewMode === 'calendar' ? 'bg-accent text-white' : 'bg-card text-muted hover:bg-primary'}`}
             >
-              📅 日历
+              日历
             </button>
             <button
               onClick={() => setViewMode('input')}
               className={`px-4 py-2 rounded-lg transition ${viewMode === 'input' ? 'bg-accent text-white' : 'bg-card text-muted hover:bg-primary'}`}
             >
-              ✏️ 输入
+              输入
             </button>
             <button
               onClick={() => setViewMode('result')}
               disabled={!generatedReport}
               className={`px-4 py-2 rounded-lg transition ${viewMode === 'result' ? 'bg-accent text-white' : 'bg-card text-muted hover:bg-primary'} disabled:opacity-50`}
             >
-              📄 结果
+              结果
             </button>
           </div>
 
           {viewMode === 'calendar' && (
             <div className="flex gap-2">
-              <button onClick={goToPrevWeek} className="px-3 py-2 bg-card text-text rounded hover:bg-primary">← 上周</button>
+              <button onClick={goToPrevWeek} className="px-3 py-2 bg-card text-text rounded hover:bg-primary">上周</button>
               <button onClick={goToToday} className="px-3 py-2 bg-card text-text rounded hover:bg-primary">今天</button>
-              <button onClick={goToNextWeek} className="px-3 py-2 bg-card text-text rounded hover:bg-primary">下周 →</button>
+              <button onClick={goToNextWeek} className="px-3 py-2 bg-card text-text rounded hover:bg-primary">下周</button>
             </div>
           )}
         </div>
@@ -404,14 +467,14 @@ ${content}
                 disabled={loading}
                 className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition disabled:opacity-50"
               >
-                📝 生成今日日报
+                生成今日日报
               </button>
               <button
                 onClick={() => { setReportType('weekly'); handleGenerate(); }}
                 disabled={loading}
                 className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:opacity-50"
               >
-                📊 生成本周周报
+                生成本周周报
               </button>
             </div>
           </div>
