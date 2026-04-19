@@ -75,6 +75,7 @@ function App() {
       if (type === 'daily') {
         if (!selectedDay) {
           setGeneratedReport('请选择一个日期');
+          setLoading(false);
           return;
         }
         const dayEntry = Object.values(allData).flat().find((d) => d.date === selectedDay);
@@ -86,6 +87,7 @@ function App() {
         const filledDays = Object.values(allData).flat().filter((d) => d.optimizedContent.trim() || d.content.trim());
         if (filledDays.length === 0) {
           setGeneratedReport('请至少填写或优化一天的工作内容');
+          setLoading(false);
           return;
         }
         content = filledDays.map((d) => {
@@ -97,6 +99,7 @@ function App() {
 
       if (!content.trim()) {
         setGeneratedReport(type === 'daily' ? '请输入工作内容' : '请至少填写或优化一天的工作内容');
+        setLoading(false);
         return;
       }
 
@@ -105,6 +108,7 @@ function App() {
 
       if (result.error) {
         setGeneratedReport(result.error);
+        setLoading(false);
         return;
       }
 
