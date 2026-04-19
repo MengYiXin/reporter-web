@@ -960,15 +960,10 @@ ${content}
                   {sjcData.categories.map((category, catIdx) => (
                     <tr key={catIdx} className={catIdx % 2 === 0 ? 'bg-[#141414]' : 'bg-[#111111]'}>
                       <td className="px-2 py-1 text-center text-[#666666] border border-[#2a2a2a]">{catIdx + 1}</td>
-                      <td className="px-2 py-1 text-center text-[#e0e0e0] border border-[#2a2a2a]" rowSpan={5}>
-                        <input
-                          value={catIdx === 0 ? sjcData.department : ''}
-                          onChange={e => { if (catIdx === 0) setSjcData(prev => prev ? { ...prev, department: e.target.value } : prev); }}
-                          className="w-full bg-transparent text-center text-[#e0e0e0] outline-none"
-                          readOnly={catIdx !== 0}
-                        />
+                      <td className="px-2 py-1 text-center text-[#888888] border border-[#2a2a2a] text-xs">
+                        {sjcData.department}
                       </td>
-                      <td className="px-2 py-1 text-left text-[#22c55e] border border-[#2a2a2a] font-medium">
+                      <td className="px-2 py-1 text-left text-[#22c55e] border border-[#2a2a2a] text-xs font-medium bg-[#1a2616]">
                         {category.name}
                       </td>
                       {(['thisWeek', 'cumulative', 'nextWeek', 'issues', 'coordination', 'leader', 'owner'] as const).map((field) => (
