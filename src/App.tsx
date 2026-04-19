@@ -29,8 +29,8 @@ interface Template {
 const TEMPLATES: Template[] = [
   {
     id: 'standard-daily',
-    name: 'Standard Daily',
-    description: 'Universal standard format for most workplaces',
+    name: '标准日报',
+    description: '通用标准格式，适合大部分企业',
     type: 'daily',
     content: `【姓名日报】
 日期：2024-01-15
@@ -51,8 +51,8 @@ const TEMPLATES: Template[] = [
   },
   {
     id: 'simple-daily',
-    name: 'Simple Daily',
-    description: 'Brief and concise for quick updates',
+    name: '简洁日报',
+    description: '简短精炼，适合快速汇报',
     type: 'daily',
     content: `# 日报 - 2024-01-15
 
@@ -71,8 +71,8 @@ const TEMPLATES: Template[] = [
   },
   {
     id: 'tech-daily',
-    name: 'Technical Daily',
-    description: 'For engineering/development teams',
+    name: '技术日报',
+    description: '技术团队专用，突出技术工作',
     type: 'daily',
     content: `# 技术日报 | 2024-01-15
 
@@ -100,8 +100,8 @@ const TEMPLATES: Template[] = [
   },
   {
     id: 'standard-weekly',
-    name: 'Standard Weekly',
-    description: 'Universal weekly report format',
+    name: '标准周报',
+    description: '通用周报格式',
     type: 'weekly',
     content: `【姓名周报】
 日期：2024-01-15 至 2024-01-19
@@ -124,8 +124,8 @@ const TEMPLATES: Template[] = [
   },
   {
     id: 'simple-weekly',
-    name: 'Simple Weekly',
-    description: 'Concise weekly report for quick updates',
+    name: '简洁周报',
+    description: '简洁周报，适合快速汇报',
     type: 'weekly',
     content: `# 周报汇总 | 2024-01-15~2024-01-19
 
@@ -147,8 +147,8 @@ const TEMPLATES: Template[] = [
   },
   {
     id: 'pm-weekly',
-    name: 'Project Manager Weekly',
-    description: 'For PMs, highlighting project progress',
+    name: '项目管理周报',
+    description: '适合PM/项目经理，突出项目进度',
     type: 'weekly',
     content: `# 项目管理周报 | 2024-01-15~2024-01-19
 
@@ -189,8 +189,8 @@ const TEMPLATES: Template[] = [
   },
   {
     id: 'standard-monthly',
-    name: 'Standard Monthly',
-    description: 'Monthly summary report',
+    name: '标准月报',
+    description: '月度总结报告',
     type: 'monthly',
     content: `【姓名月报】
 日期：2024年1月
@@ -223,8 +223,8 @@ const TEMPLATES: Template[] = [
   },
   {
     id: 'executive-monthly',
-    name: 'Executive Monthly',
-    description: 'For executives, highlighting strategic value',
+    name: '高管月报',
+    description: '适合管理层，突出战略价值',
     type: 'monthly',
     content: `# 月度工作汇报 | 2024年1月
 
@@ -271,7 +271,7 @@ const TEMPLATES: Template[] = [
 
 const MODEL_CONFIGS: Record<AIModel, ModelConfig> = {
   kimi: {
-    name: 'Kimi (Moonshot)',
+    name: 'Kimi (月之暗面)',
     endpoint: 'https://api.moonshot.cn/v1/chat/completions',
     model: 'moonshot-v1-8k',
     keyPlaceholder: 'sk-... (Kimi)',
@@ -304,7 +304,7 @@ const MODEL_CONFIGS: Record<AIModel, ModelConfig> = {
 
 function getWeekDays(baseDate: Date = new Date()): DayEntry[] {
   const days: DayEntry[] = [];
-  const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const dayNames = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
 
   const date = new Date(baseDate);
   const dayOfWeek = date.getDay();
@@ -325,7 +325,7 @@ function getWeekDays(baseDate: Date = new Date()): DayEntry[] {
 
 function formatDateDisplay(dateStr: string): string {
   const d = new Date(dateStr);
-  return `${d.getMonth() + 1}/${d.getDate()}`;
+  return `${d.getMonth() + 1}月${d.getDate()}日`;
 }
 
 function App() {
@@ -539,7 +539,7 @@ ${content}
 
     try {
       if (!apiKey.trim()) {
-        setGeneratedReport('Please set API Key first');
+        setGeneratedReport('请先设置 API Key（点击右上角设置按钮）');
         return;
       }
 
@@ -549,7 +549,7 @@ ${content}
       if (reportType === 'daily') {
         const day = weekDays.find(d => d.date === selectedDay);
         if (!day) {
-          setGeneratedReport('Please select a date');
+          setGeneratedReport('请选择一个日期');
           return;
         }
         content = day.content;
@@ -557,15 +557,15 @@ ${content}
       } else {
         const filledDays = weekDays.filter(d => d.content.trim());
         if (filledDays.length === 0) {
-          setGeneratedReport('Please fill in at least one day');
+          setGeneratedReport('请至少填写一天的工作内容');
           return;
         }
         content = filledDays.map(d => `${d.dayName} (${d.date}):\n${d.content}`).join('\n\n');
-        targetDate = `${weekDays[0].date} to ${weekDays[4].date}`;
+        targetDate = `${weekDays[0].date} 至 ${weekDays[4].date}`;
       }
 
       if (!content.trim()) {
-        setGeneratedReport(reportType === 'daily' ? 'Please input work content' : 'Please fill in at least one day');
+        setGeneratedReport(reportType === 'daily' ? '请输入工作内容' : '请至少填写一天的工作内容');
         return;
       }
 
@@ -588,7 +588,7 @@ ${content}
       const data = await response.json();
 
       if (data.error) {
-        setGeneratedReport(`API Error: ${data.error.message || JSON.stringify(data.error)}`);
+        setGeneratedReport(`API 错误：${data.error.message || JSON.stringify(data.error)}`);
         return;
       }
 
@@ -605,10 +605,10 @@ ${content}
         setGeneratedReport(text);
         setViewMode('result');
       } else {
-        setGeneratedReport('Failed to parse response\n' + JSON.stringify(data).substring(0, 200));
+        setGeneratedReport('生成失败：无法解析响应\n' + JSON.stringify(data).substring(0, 200));
       }
     } catch (e) {
-      setGeneratedReport(`Failed: ${e}`);
+      setGeneratedReport(`生成失败：${e}`);
     } finally {
       setLoading(false);
     }
@@ -626,12 +626,12 @@ ${content}
 
   const handleCopy = () => {
     navigator.clipboard.writeText(generatedReport);
-    alert('Copied to clipboard');
+    alert('已复制到剪贴板');
   };
 
   const copyTemplate = (template: Template) => {
     navigator.clipboard.writeText(template.content);
-    alert(`"${template.name}" copied to clipboard`);
+    alert(`"${template.name}" 已复制到剪贴板`);
   };
 
   return (
@@ -640,8 +640,8 @@ ${content}
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="text-2xl font-semibold text-white tracking-tight">Weekly Reporter</h1>
-            <p className="text-sm text-[#888888] mt-1">AI-powered report generator</p>
+            <h1 className="text-2xl font-semibold text-white tracking-tight">周报助手</h1>
+            <p className="text-sm text-[#888888] mt-1">AI 智能报告生成器</p>
           </div>
           <div className="flex items-center gap-3">
             <select
@@ -683,7 +683,7 @@ ${content}
                   : 'text-[#666666] hover:text-[#b0b0b0] hover:bg-[#1a1a1a]'
               }`}
             >
-              {tab === 'calendar' ? 'Calendar' : tab === 'input' ? 'Input' : tab === 'templates' ? 'Templates' : 'Result'}
+              {tab === 'calendar' ? '日历' : tab === 'input' ? '输入' : tab === 'templates' ? '模板' : '结果'}
             </button>
           ))}
         </div>
@@ -698,7 +698,7 @@ ${content}
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                   </svg>
                 </button>
-                <button onClick={goToToday} className="px-4 py-2 text-sm text-[#888888] hover:bg-[#1c1c1c] rounded-lg transition hover:text-[#b0b0b0] border border-transparent hover:border-[#2a2a2a]">Today</button>
+                <button onClick={goToToday} className="px-4 py-2 text-sm text-[#888888] hover:bg-[#1c1c1c] rounded-lg transition hover:text-[#b0b0b0] border border-transparent hover:border-[#2a2a2a]">今天</button>
                 <button onClick={goToNextWeek} className="p-2 hover:bg-[#1c1c1c] rounded-lg transition border border-transparent hover:border-[#2a2a2a]">
                   <svg className="w-5 h-5 text-[#666666]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -724,7 +724,7 @@ ${content}
                   <div className="text-xs font-medium opacity-60">{day.dayName}</div>
                   <div className="text-lg font-semibold mt-1 text-inherit">{formatDateDisplay(day.date)}</div>
                   <div className="mt-3 text-xs h-10 overflow-hidden opacity-70">
-                    {day.content ? (day.content.length > 40 ? day.content.substring(0, 40) + '...' : day.content) : 'Click to fill'}
+                    {day.content ? (day.content.length > 40 ? day.content.substring(0, 40) + '...' : day.content) : '点击填写'}
                   </div>
                 </div>
               ))}
@@ -736,14 +736,14 @@ ${content}
                 disabled={loading}
                 className="px-6 py-3 bg-[#22c55e] text-white text-sm font-medium rounded-xl hover:bg-[#16a34a] transition disabled:opacity-50 shadow-lg shadow-green-500/20"
               >
-                Generate Daily Report
+                生成今日日报
               </button>
               <button
                 onClick={() => { setReportType('weekly'); handleGenerate(); }}
                 disabled={loading}
                 className="px-6 py-3 bg-[#3b82f6] text-white text-sm font-medium rounded-xl hover:bg-[#2563eb] transition disabled:opacity-50 shadow-lg shadow-blue-500/20"
               >
-                Generate Weekly Report
+                生成本周周报
               </button>
             </div>
           </div>
@@ -754,13 +754,13 @@ ${content}
           <div className="bg-[#111111] rounded-2xl p-6 border border-[#1f1f1f]">
             <div className="flex items-center gap-4 mb-6">
               <select value={reportType} onChange={e => setReportType(e.target.value as ReportType)} className="px-4 py-2.5 text-sm bg-[#161616] border border-[#2a2a2a] rounded-xl text-[#e0e0e0] focus:outline-none focus:ring-1 focus:ring-[#3b82f6] focus:border-[#3b82f6]">
-                <option value="daily">Daily Report</option>
-                <option value="weekly">Weekly Report</option>
-                <option value="monthly">Monthly Report</option>
+                <option value="daily">日报</option>
+                <option value="weekly">周报</option>
+                <option value="monthly">月报</option>
               </select>
               <select value={reportStyle} onChange={e => setReportStyle(e.target.value as ReportStyle)} className="px-4 py-2.5 text-sm bg-[#161616] border border-[#2a2a2a] rounded-xl text-[#e0e0e0] focus:outline-none focus:ring-1 focus:ring-[#3b82f6] focus:border-[#3b82f6]">
-                <option value="standard">Standard Format</option>
-                <option value="simple">Simple Format</option>
+                <option value="standard">标准格式</option>
+                <option value="simple">简洁格式</option>
               </select>
               {reportType === 'daily' && (
                 <input type="date" value={selectedDay} onChange={e => setSelectedDay(e.target.value)} className="px-4 py-2.5 text-sm bg-[#161616] border border-[#2a2a2a] rounded-xl text-[#e0e0e0] focus:outline-none focus:ring-1 focus:ring-[#3b82f6] focus:border-[#3b82f6]" />
@@ -768,14 +768,14 @@ ${content}
             </div>
 
             <textarea
-              placeholder={reportType === 'daily' ? 'Enter today\'s work content...' : reportType === 'weekly' ? 'Enter weekly work summary...\n\nOr click "Calendar" to view auto-filled daily entries' : 'Enter monthly work summary...'}
+              placeholder={reportType === 'daily' ? '输入今日工作内容...' : reportType === 'weekly' ? '输入本周工作内容汇总...\n\n也可以点击左侧"日历"按钮，查看每日填写的内容自动汇总' : '输入本月工作内容汇总...'}
               value={reportType === 'daily' ? weekDays.find(d => d.date === selectedDay)?.content || '' : weekDays.filter(d => d.content.trim()).map(d => `[${d.dayName}] ${d.content}`).join('\n\n')}
               onChange={e => { if (reportType === 'daily') updateDayContent(selectedDay, e.target.value); }}
               className="w-full h-64 px-4 py-3 text-sm bg-[#161616] border border-[#2a2a2a] rounded-xl text-[#e0e0e0] resize-none focus:outline-none focus:ring-1 focus:ring-[#3b82f6] focus:border-[#3b82f6]"
             />
 
             <button onClick={handleGenerate} disabled={loading} className="w-full mt-4 py-3.5 bg-gradient-to-r from-[#3b82f6] to-[#1d4ed8] text-white text-sm font-medium rounded-xl hover:opacity-90 transition disabled:opacity-50 shadow-lg shadow-blue-500/20">
-              {loading ? 'Generating...' : 'Generate Report'}
+              {loading ? '生成中...' : '生成报告'}
             </button>
           </div>
         )}
@@ -785,17 +785,17 @@ ${content}
           <div className="space-y-6">
             <div className="flex items-center justify-between">
               <div>
-                <h2 className="text-lg font-semibold text-white">Report Templates</h2>
-                <p className="text-sm text-[#666666] mt-1">Click to copy template to clipboard</p>
+                <h2 className="text-lg font-semibold text-white">报告模板</h2>
+                <p className="text-sm text-[#666666] mt-1">点击即可复制模板到剪贴板</p>
               </div>
               <select
                 value={reportType}
                 onChange={e => setReportType(e.target.value as ReportType)}
                 className="px-4 py-2.5 text-sm bg-[#161616] border border-[#2a2a2a] rounded-xl text-[#e0e0e0] focus:outline-none focus:ring-1 focus:ring-[#3b82f6] focus:border-[#3b82f6]"
               >
-                <option value="daily">Daily</option>
-                <option value="weekly">Weekly</option>
-                <option value="monthly">Monthly</option>
+                <option value="daily">日报</option>
+                <option value="weekly">周报</option>
+                <option value="monthly">月报</option>
               </select>
             </div>
 
@@ -811,7 +811,7 @@ ${content}
                       onClick={() => copyTemplate(template)}
                       className="px-3 py-1.5 text-xs font-medium bg-[#1c1c1c] text-[#b0b0b0] rounded-lg hover:bg-[#252525] hover:text-white transition border border-[#2a2a2a]"
                     >
-                      Copy
+                      复制
                     </button>
                   </div>
                   <pre className="text-xs text-[#888888] whitespace-pre-wrap bg-[#0d0d0d] p-3 rounded-lg max-h-40 overflow-auto border border-[#1a1a1a]">{template.content}</pre>
@@ -826,17 +826,17 @@ ${content}
           <div className="bg-[#111111] rounded-2xl p-6 border border-[#1f1f1f]">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-lg font-semibold text-white">
-                {reportType === 'daily' ? 'Daily' : reportType === 'weekly' ? 'Weekly' : 'Monthly'} Report
+                {reportType === 'daily' ? '日报' : reportType === 'weekly' ? '周报' : '月报'}结果
               </h2>
               <div className="flex gap-2">
                 <button onClick={handleCopy} className="px-4 py-2 text-sm bg-[#1c1c1c] text-[#b0b0b0] rounded-lg hover:bg-[#252525] hover:text-white transition font-medium border border-[#2a2a2a]">
-                  Copy
+                  复制
                 </button>
                 <button onClick={handleExport} className="px-4 py-2 text-sm bg-[#1c1c1c] text-[#b0b0b0] rounded-lg hover:bg-[#252525] hover:text-white transition font-medium border border-[#2a2a2a]">
-                  Export
+                  导出
                 </button>
                 <button onClick={() => setViewMode('calendar')} className="px-4 py-2 text-sm bg-gradient-to-r from-[#3b82f6] to-[#1d4ed8] text-white rounded-lg hover:opacity-90 transition font-medium shadow-lg shadow-blue-500/20">
-                  Back
+                  返回
                 </button>
               </div>
             </div>
@@ -847,7 +847,7 @@ ${content}
         {/* Footer */}
         {viewMode === 'calendar' && (
           <div className="mt-6 text-center text-xs text-[#444444]">
-            Data auto-saved to browser local storage
+            数据自动保存到浏览器本地存储
           </div>
         )}
       </div>
