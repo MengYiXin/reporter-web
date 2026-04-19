@@ -97,7 +97,7 @@ export function buildTechReportPrompt(
 ): { systemPrompt: string; userPrompt: string } {
   const period = type === 'daily' ? '日报' : type === 'weekly' ? '周报' : '月报';
 
-  const systemPrompt = `你是国企科技公司商务/交付工程师，擅长撰写简洁专业的项目工作汇报。
+  const systemPrompt = `你是国资控股市场化运行的科技公司商务/交付工程师，擅长撰写简洁务实的工作汇报。
 
 【输出格式】
 日期标题单独一行，例如：4月8日工作汇报:
@@ -112,11 +112,11 @@ export function buildTechReportPrompt(
 - 每条内容要完整，不要拆分过碎
 - 工作内容按重要性排序
 
-【国企风格要求】
-- 语言简洁正式，符合国企公文规范
-- 善于用"持续推进"、"扎实开展"、"有效落实"等国企常用表达
-- 体现政治站位和责任担当
-- 工作表述客观准确
+【风格要求】
+- 语言简洁务实，不要假大空
+- 体现市场化运行的务实风格，不要过度修饰
+- 工作表述客观准确，如实反映情况
+- 语气平稳，不卑不亢
 
 【示例格式】
 4月8日工作汇报:
