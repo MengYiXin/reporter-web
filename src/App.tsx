@@ -29,8 +29,8 @@ interface Template {
 const TEMPLATES: Template[] = [
   {
     id: 'standard-daily',
-    name: '标准日报',
-    description: '通用标准格式，适合大部分企业',
+    name: 'Standard Daily',
+    description: 'Universal standard format for most workplaces',
     type: 'daily',
     content: `【姓名日报】
 日期：2024-01-15
@@ -51,8 +51,8 @@ const TEMPLATES: Template[] = [
   },
   {
     id: 'simple-daily',
-    name: '简洁日报',
-    description: '简短精炼，适合快速汇报',
+    name: 'Simple Daily',
+    description: 'Brief and concise for quick updates',
     type: 'daily',
     content: `# 日报 - 2024-01-15
 
@@ -71,8 +71,8 @@ const TEMPLATES: Template[] = [
   },
   {
     id: 'tech-daily',
-    name: '技术日报',
-    description: '技术团队专用，突出技术工作',
+    name: 'Technical Daily',
+    description: 'For engineering/development teams',
     type: 'daily',
     content: `# 技术日报 | 2024-01-15
 
@@ -100,8 +100,8 @@ const TEMPLATES: Template[] = [
   },
   {
     id: 'standard-weekly',
-    name: '标准周报',
-    description: '通用周报格式',
+    name: 'Standard Weekly',
+    description: 'Universal weekly report format',
     type: 'weekly',
     content: `【姓名周报】
 日期：2024-01-15 至 2024-01-19
@@ -124,8 +124,8 @@ const TEMPLATES: Template[] = [
   },
   {
     id: 'simple-weekly',
-    name: '简洁周报',
-    description: '简洁周报，适合快速汇报',
+    name: 'Simple Weekly',
+    description: 'Concise weekly report for quick updates',
     type: 'weekly',
     content: `# 周报汇总 | 2024-01-15~2024-01-19
 
@@ -147,8 +147,8 @@ const TEMPLATES: Template[] = [
   },
   {
     id: 'pm-weekly',
-    name: '项目管理周报',
-    description: '适合PM/项目经理，突出项目进度',
+    name: 'Project Manager Weekly',
+    description: 'For PMs, highlighting project progress',
     type: 'weekly',
     content: `# 项目管理周报 | 2024-01-15~2024-01-19
 
@@ -189,8 +189,8 @@ const TEMPLATES: Template[] = [
   },
   {
     id: 'standard-monthly',
-    name: '标准月报',
-    description: '月度总结报告',
+    name: 'Standard Monthly',
+    description: 'Monthly summary report',
     type: 'monthly',
     content: `【姓名月报】
 日期：2024年1月
@@ -223,8 +223,8 @@ const TEMPLATES: Template[] = [
   },
   {
     id: 'executive-monthly',
-    name: '高管月报',
-    description: '适合管理层，突出战略价值',
+    name: 'Executive Monthly',
+    description: 'For executives, highlighting strategic value',
     type: 'monthly',
     content: `# 月度工作汇报 | 2024年1月
 
@@ -635,13 +635,13 @@ ${content}
   };
 
   return (
-    <div className="min-h-screen bg-[#f8f9fa]">
+    <div className="min-h-screen bg-[#0a0a0a]">
       <div className="max-w-6xl mx-auto px-6 py-8">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="text-2xl font-semibold text-[#1a1a2e] tracking-tight">Weekly Reporter</h1>
-            <p className="text-sm text-[#6b7280] mt-1">AI-powered report generator</p>
+            <h1 className="text-2xl font-semibold text-white tracking-tight">Weekly Reporter</h1>
+            <p className="text-sm text-[#888888] mt-1">AI-powered report generator</p>
           </div>
           <div className="flex items-center gap-3">
             <select
@@ -650,7 +650,7 @@ ${content}
                 setAiModel(e.target.value as AIModel);
                 localStorage.setItem('ai_model', e.target.value);
               }}
-              className="px-3 py-2 text-sm bg-white border border-[#e5e7eb] rounded-lg text-[#374151] focus:outline-none focus:ring-2 focus:ring-[#1a1a2e] focus:ring-offset-1"
+              className="px-3 py-2 text-sm bg-[#1c1c1c] border border-[#2a2a2a] rounded-lg text-[#e0e0e0] focus:outline-none focus:ring-1 focus:ring-[#3b82f6] focus:border-[#3b82f6]"
             >
               <option value="kimi">Kimi</option>
               <option value="deepseek">DeepSeek</option>
@@ -666,21 +666,21 @@ ${content}
                 localStorage.setItem('ai_api_key', e.target.value);
               }}
               placeholder={MODEL_CONFIGS[aiModel].keyPlaceholder}
-              className="px-3 py-2 text-sm bg-white border border-[#e5e7eb] rounded-lg text-[#374151] w-40 focus:outline-none focus:ring-2 focus:ring-[#1a1a2e] focus:ring-offset-1"
+              className="px-3 py-2 text-sm bg-[#1c1c1c] border border-[#2a2a2a] rounded-lg text-[#e0e0e0] w-40 focus:outline-none focus:ring-1 focus:ring-[#3b82f6] focus:border-[#3b82f6]"
             />
           </div>
         </div>
 
         {/* Navigation Tabs */}
-        <div className="flex gap-1 mb-6 bg-white p-1 rounded-xl shadow-sm border border-[#e5e7eb]">
+        <div className="flex gap-1 mb-6 bg-[#141414] p-1 rounded-xl border border-[#1f1f1f]">
           {(['calendar', 'input', 'templates', 'result'] as ViewMode[]).map(tab => (
             <button
               key={tab}
               onClick={() => setViewMode(tab)}
               className={`flex-1 py-2.5 px-4 text-sm font-medium rounded-lg transition-all ${
                 viewMode === tab
-                  ? 'bg-[#1a1a2e] text-white shadow-sm'
-                  : 'text-[#6b7280] hover:text-[#1a1a2e] hover:bg-[#f3f4f6]'
+                  ? 'bg-[#1c1c1c] text-white shadow-sm border border-[#2a2a2a]'
+                  : 'text-[#666666] hover:text-[#b0b0b0] hover:bg-[#1a1a1a]'
               }`}
             >
               {tab === 'calendar' ? 'Calendar' : tab === 'input' ? 'Input' : tab === 'templates' ? 'Templates' : 'Result'}
@@ -690,22 +690,22 @@ ${content}
 
         {/* Calendar View */}
         {viewMode === 'calendar' && (
-          <div className="bg-white rounded-2xl shadow-sm border border-[#e5e7eb] p-6">
+          <div className="bg-[#111111] rounded-2xl p-6 border border-[#1f1f1f]">
             <div className="flex items-center justify-between mb-6">
               <div className="flex gap-2">
-                <button onClick={goToPrevWeek} className="p-2 hover:bg-[#f3f4f6] rounded-lg transition">
-                  <svg className="w-5 h-5 text-[#6b7280]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <button onClick={goToPrevWeek} className="p-2 hover:bg-[#1c1c1c] rounded-lg transition border border-transparent hover:border-[#2a2a2a]">
+                  <svg className="w-5 h-5 text-[#666666]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                   </svg>
                 </button>
-                <button onClick={goToToday} className="px-4 py-2 text-sm text-[#6b7280] hover:bg-[#f3f4f6] rounded-lg transition">Today</button>
-                <button onClick={goToNextWeek} className="p-2 hover:bg-[#f3f4f6] rounded-lg transition">
-                  <svg className="w-5 h-5 text-[#6b7280]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <button onClick={goToToday} className="px-4 py-2 text-sm text-[#888888] hover:bg-[#1c1c1c] rounded-lg transition hover:text-[#b0b0b0] border border-transparent hover:border-[#2a2a2a]">Today</button>
+                <button onClick={goToNextWeek} className="p-2 hover:bg-[#1c1c1c] rounded-lg transition border border-transparent hover:border-[#2a2a2a]">
+                  <svg className="w-5 h-5 text-[#666666]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                   </svg>
                 </button>
               </div>
-              <span className="text-sm text-[#374151] font-medium">{currentWeekStart}</span>
+              <span className="text-sm text-[#666666] font-medium">{currentWeekStart}</span>
             </div>
 
             <div className="grid grid-cols-5 gap-4">
@@ -715,15 +715,15 @@ ${content}
                   onClick={() => setSelectedDay(day.date)}
                   className={`p-4 rounded-xl cursor-pointer transition-all ${
                     selectedDay === day.date
-                      ? 'bg-[#1a1a2e] text-white shadow-lg ring-2 ring-[#1a1a2e] ring-offset-2'
+                      ? 'bg-gradient-to-br from-[#3b82f6] to-[#1d4ed8] text-white shadow-lg shadow-blue-500/20 ring-2 ring-blue-500 ring-offset-2 ring-offset-[#111111]'
                       : day.content.trim()
-                      ? 'bg-[#f0fdf4] text-[#166534] border-2 border-[#22c55e]'
-                      : 'bg-[#fafafa] text-[#6b7280] hover:bg-[#f3f4f6] border border-[#e5e7eb]'
+                      ? 'bg-[#1a2618] text-[#4ade80] border border-[#22c55e]/30'
+                      : 'bg-[#161616] text-[#666666] hover:bg-[#1c1c1c] border border-[#252525]'
                   }`}
                 >
-                  <div className="text-xs font-medium opacity-70">{day.dayName}</div>
-                  <div className="text-lg font-semibold mt-1">{formatDateDisplay(day.date)}</div>
-                  <div className="mt-3 text-xs h-10 overflow-hidden opacity-80">
+                  <div className="text-xs font-medium opacity-60">{day.dayName}</div>
+                  <div className="text-lg font-semibold mt-1 text-inherit">{formatDateDisplay(day.date)}</div>
+                  <div className="mt-3 text-xs h-10 overflow-hidden opacity-70">
                     {day.content ? (day.content.length > 40 ? day.content.substring(0, 40) + '...' : day.content) : 'Click to fill'}
                   </div>
                 </div>
@@ -734,14 +734,14 @@ ${content}
               <button
                 onClick={() => { setReportType('daily'); handleGenerate(); }}
                 disabled={loading}
-                className="px-6 py-3 bg-[#22c55e] text-white text-sm font-medium rounded-xl hover:bg-[#16a34a] transition disabled:opacity-50 shadow-sm"
+                className="px-6 py-3 bg-[#22c55e] text-white text-sm font-medium rounded-xl hover:bg-[#16a34a] transition disabled:opacity-50 shadow-lg shadow-green-500/20"
               >
                 Generate Daily Report
               </button>
               <button
                 onClick={() => { setReportType('weekly'); handleGenerate(); }}
                 disabled={loading}
-                className="px-6 py-3 bg-[#3b82f6] text-white text-sm font-medium rounded-xl hover:bg-[#2563eb] transition disabled:opacity-50 shadow-sm"
+                className="px-6 py-3 bg-[#3b82f6] text-white text-sm font-medium rounded-xl hover:bg-[#2563eb] transition disabled:opacity-50 shadow-lg shadow-blue-500/20"
               >
                 Generate Weekly Report
               </button>
@@ -751,19 +751,19 @@ ${content}
 
         {/* Input View */}
         {viewMode === 'input' && (
-          <div className="bg-white rounded-2xl shadow-sm border border-[#e5e7eb] p-6">
+          <div className="bg-[#111111] rounded-2xl p-6 border border-[#1f1f1f]">
             <div className="flex items-center gap-4 mb-6">
-              <select value={reportType} onChange={e => setReportType(e.target.value as ReportType)} className="px-4 py-2.5 text-sm bg-[#fafafa] border border-[#e5e7eb] rounded-xl text-[#374151] focus:outline-none focus:ring-2 focus:ring-[#1a1a2e]">
+              <select value={reportType} onChange={e => setReportType(e.target.value as ReportType)} className="px-4 py-2.5 text-sm bg-[#161616] border border-[#2a2a2a] rounded-xl text-[#e0e0e0] focus:outline-none focus:ring-1 focus:ring-[#3b82f6] focus:border-[#3b82f6]">
                 <option value="daily">Daily Report</option>
                 <option value="weekly">Weekly Report</option>
                 <option value="monthly">Monthly Report</option>
               </select>
-              <select value={reportStyle} onChange={e => setReportStyle(e.target.value as ReportStyle)} className="px-4 py-2.5 text-sm bg-[#fafafa] border border-[#e5e7eb] rounded-xl text-[#374151] focus:outline-none focus:ring-2 focus:ring-[#1a1a2e]">
+              <select value={reportStyle} onChange={e => setReportStyle(e.target.value as ReportStyle)} className="px-4 py-2.5 text-sm bg-[#161616] border border-[#2a2a2a] rounded-xl text-[#e0e0e0] focus:outline-none focus:ring-1 focus:ring-[#3b82f6] focus:border-[#3b82f6]">
                 <option value="standard">Standard Format</option>
                 <option value="simple">Simple Format</option>
               </select>
               {reportType === 'daily' && (
-                <input type="date" value={selectedDay} onChange={e => setSelectedDay(e.target.value)} className="px-4 py-2.5 text-sm bg-[#fafafa] border border-[#e5e7eb] rounded-xl text-[#374151] focus:outline-none focus:ring-2 focus:ring-[#1a1a2e]" />
+                <input type="date" value={selectedDay} onChange={e => setSelectedDay(e.target.value)} className="px-4 py-2.5 text-sm bg-[#161616] border border-[#2a2a2a] rounded-xl text-[#e0e0e0] focus:outline-none focus:ring-1 focus:ring-[#3b82f6] focus:border-[#3b82f6]" />
               )}
             </div>
 
@@ -771,10 +771,10 @@ ${content}
               placeholder={reportType === 'daily' ? 'Enter today\'s work content...' : reportType === 'weekly' ? 'Enter weekly work summary...\n\nOr click "Calendar" to view auto-filled daily entries' : 'Enter monthly work summary...'}
               value={reportType === 'daily' ? weekDays.find(d => d.date === selectedDay)?.content || '' : weekDays.filter(d => d.content.trim()).map(d => `[${d.dayName}] ${d.content}`).join('\n\n')}
               onChange={e => { if (reportType === 'daily') updateDayContent(selectedDay, e.target.value); }}
-              className="w-full h-64 px-4 py-3 text-sm bg-[#fafafa] border border-[#e5e7eb] rounded-xl text-[#374151] resize-none focus:outline-none focus:ring-2 focus:ring-[#1a1a2e]"
+              className="w-full h-64 px-4 py-3 text-sm bg-[#161616] border border-[#2a2a2a] rounded-xl text-[#e0e0e0] resize-none focus:outline-none focus:ring-1 focus:ring-[#3b82f6] focus:border-[#3b82f6]"
             />
 
-            <button onClick={handleGenerate} disabled={loading} className="w-full mt-4 py-3.5 bg-[#1a1a2e] text-white text-sm font-medium rounded-xl hover:bg-[#2d2d4a] transition disabled:opacity-50">
+            <button onClick={handleGenerate} disabled={loading} className="w-full mt-4 py-3.5 bg-gradient-to-r from-[#3b82f6] to-[#1d4ed8] text-white text-sm font-medium rounded-xl hover:opacity-90 transition disabled:opacity-50 shadow-lg shadow-blue-500/20">
               {loading ? 'Generating...' : 'Generate Report'}
             </button>
           </div>
@@ -785,13 +785,13 @@ ${content}
           <div className="space-y-6">
             <div className="flex items-center justify-between">
               <div>
-                <h2 className="text-lg font-semibold text-[#1a1a2e]">Report Templates</h2>
-                <p className="text-sm text-[#6b7280] mt-1">Click to copy template to clipboard</p>
+                <h2 className="text-lg font-semibold text-white">Report Templates</h2>
+                <p className="text-sm text-[#666666] mt-1">Click to copy template to clipboard</p>
               </div>
               <select
                 value={reportType}
                 onChange={e => setReportType(e.target.value as ReportType)}
-                className="px-4 py-2.5 text-sm bg-white border border-[#e5e7eb] rounded-xl text-[#374151] focus:outline-none focus:ring-2 focus:ring-[#1a1a2e]"
+                className="px-4 py-2.5 text-sm bg-[#161616] border border-[#2a2a2a] rounded-xl text-[#e0e0e0] focus:outline-none focus:ring-1 focus:ring-[#3b82f6] focus:border-[#3b82f6]"
               >
                 <option value="daily">Daily</option>
                 <option value="weekly">Weekly</option>
@@ -801,20 +801,20 @@ ${content}
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {TEMPLATES.filter(t => t.type === reportType).map(template => (
-                <div key={template.id} className="bg-white rounded-2xl shadow-sm border border-[#e5e7eb] p-5 hover:shadow-md transition">
+                <div key={template.id} className="bg-[#111111] rounded-2xl p-5 border border-[#1f1f1f] hover:border-[#2a2a2a] transition">
                   <div className="flex items-start justify-between mb-3">
                     <div>
-                      <h3 className="font-medium text-[#1a1a2e]">{template.name}</h3>
-                      <p className="text-xs text-[#6b7280] mt-1">{template.description}</p>
+                      <h3 className="font-medium text-white">{template.name}</h3>
+                      <p className="text-xs text-[#666666] mt-1">{template.description}</p>
                     </div>
                     <button
                       onClick={() => copyTemplate(template)}
-                      className="px-3 py-1.5 text-xs font-medium bg-[#f3f4f6] text-[#374151] rounded-lg hover:bg-[#e5e7eb] transition"
+                      className="px-3 py-1.5 text-xs font-medium bg-[#1c1c1c] text-[#b0b0b0] rounded-lg hover:bg-[#252525] hover:text-white transition border border-[#2a2a2a]"
                     >
                       Copy
                     </button>
                   </div>
-                  <pre className="text-xs text-[#6b7280] whitespace-pre-wrap bg-[#fafafa] p-3 rounded-lg max-h-40 overflow-auto">{template.content}</pre>
+                  <pre className="text-xs text-[#888888] whitespace-pre-wrap bg-[#0d0d0d] p-3 rounded-lg max-h-40 overflow-auto border border-[#1a1a1a]">{template.content}</pre>
                 </div>
               ))}
             </div>
@@ -823,30 +823,30 @@ ${content}
 
         {/* Result View */}
         {viewMode === 'result' && (
-          <div className="bg-white rounded-2xl shadow-sm border border-[#e5e7eb] p-6">
+          <div className="bg-[#111111] rounded-2xl p-6 border border-[#1f1f1f]">
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-lg font-semibold text-[#1a1a2e]">
+              <h2 className="text-lg font-semibold text-white">
                 {reportType === 'daily' ? 'Daily' : reportType === 'weekly' ? 'Weekly' : 'Monthly'} Report
               </h2>
               <div className="flex gap-2">
-                <button onClick={handleCopy} className="px-4 py-2 text-sm bg-[#f3f4f6] text-[#374151] rounded-lg hover:bg-[#e5e7eb] transition font-medium">
+                <button onClick={handleCopy} className="px-4 py-2 text-sm bg-[#1c1c1c] text-[#b0b0b0] rounded-lg hover:bg-[#252525] hover:text-white transition font-medium border border-[#2a2a2a]">
                   Copy
                 </button>
-                <button onClick={handleExport} className="px-4 py-2 text-sm bg-[#f3f4f6] text-[#374151] rounded-lg hover:bg-[#e5e7eb] transition font-medium">
+                <button onClick={handleExport} className="px-4 py-2 text-sm bg-[#1c1c1c] text-[#b0b0b0] rounded-lg hover:bg-[#252525] hover:text-white transition font-medium border border-[#2a2a2a]">
                   Export
                 </button>
-                <button onClick={() => setViewMode('calendar')} className="px-4 py-2 text-sm bg-[#1a1a2e] text-white rounded-lg hover:bg-[#2d2d4a] transition font-medium">
+                <button onClick={() => setViewMode('calendar')} className="px-4 py-2 text-sm bg-gradient-to-r from-[#3b82f6] to-[#1d4ed8] text-white rounded-lg hover:opacity-90 transition font-medium shadow-lg shadow-blue-500/20">
                   Back
                 </button>
               </div>
             </div>
-            <pre className="whitespace-pre-wrap text-sm text-[#374151] bg-[#fafafa] p-5 rounded-xl overflow-auto max-h-[500px] leading-relaxed">{generatedReport}</pre>
+            <pre className="whitespace-pre-wrap text-sm text-[#c0c0c0] bg-[#0d0d0d] p-5 rounded-xl overflow-auto max-h-[500px] leading-relaxed border border-[#1a1a1a]">{generatedReport}</pre>
           </div>
         )}
 
         {/* Footer */}
         {viewMode === 'calendar' && (
-          <div className="mt-6 text-center text-xs text-[#9ca3af]">
+          <div className="mt-6 text-center text-xs text-[#444444]">
             Data auto-saved to browser local storage
           </div>
         )}
