@@ -724,15 +724,15 @@ ${content}
               onClick={() => setUserMode('m')}
               className="w-full py-4 px-6 bg-gradient-to-r from-[#3b82f6] to-[#1d4ed8] text-white rounded-xl font-medium text-lg hover:opacity-90 transition"
             >
-              小蒙 (M)
-              <span className="block text-sm opacity-70 font-normal mt-1">科技公司解决方案岗位</span>
+              M
+              <span className="block text-sm opacity-70 font-normal mt-1">科技公司</span>
             </button>
             <button
               onClick={() => setUserMode('y')}
               className="w-full py-4 px-6 bg-gradient-to-r from-[#22c55e] to-[#16a34a] text-white rounded-xl font-medium text-lg hover:opacity-90 transition"
             >
-              圆圆 (Y)
-              <span className="block text-sm opacity-70 font-normal mt-1">三江集团供应链岗位</span>
+              Y
+              <span className="block text-sm opacity-70 font-normal mt-1">供应链</span>
             </button>
           </div>
           <p className="text-xs text-[#444444] text-center mt-6">数据保存在本地 · 上传 GitHub 可多设备同步</p>
@@ -752,7 +752,7 @@ ${content}
             <div>
               <div className="flex items-center gap-2">
                 <h1 className={`font-semibold text-white tracking-tight ${isMobile ? 'text-xl' : 'text-2xl'}`}>
-                  {isYMode ? '圆圆周报助手' : '小蒙周报助手'}
+                  {isYMode ? '供应链周报助手' : '科技公司周报助手'}
                 </h1>
                 <button
                   onClick={() => setUserMode(null)}
