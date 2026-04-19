@@ -569,6 +569,112 @@ ${content}
     finally { setLoading(false); }
   };
 
+  // AI填充单条工作记录内容
+  const expandSJCContent = async (index: number) => {
+    const entry = sjcEntries[index];
+    if (!entry.content.trim()) { alert('请先填写简要工作内容'); return; }
+    if (!apiKey.trim()) { alert('请先设置 API Key'); return; }
+
+    setLoading(true);
+    try {
+      const prompt = `请根据以下工作记录的简要内容，扩写成详细的工作描述。
+
+类别：${entry.category}
+项目：${entry.project}
+简要内容：${entry.content}
+责任人：${entry.owner}
+
+请扩写成一段流畅详细的工作描述，包含：
+1. 具体做了什么事情
+2. 过程中遇到的困难及解决方法（如有）
+3. 取得的成果或进展
+
+只需输出一段文字，不要加标题或说明。`;
+
+      const config = MODEL_CONFIGS[aiModel];
+      const response = await fetch(config.endpoint, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model: config.model, messages: [{ role: 'user', content: prompt }], max_tokens: 1024 }),
+      });
+      const data = await response.json();
+      if (data.error) { alert(`API 错误：${data.error.message}`); return; }
+      const text = data.choices?.[0]?.message?.content || '';
+      if (text) {
+        updateSJCEntry(index, 'content', text);
+      } else { alert('生成失败'); }
+    } catch (e) { alert(`生成失败：${e}`); }
+    finally { setLoading(false); }
+  };
+
+  // AI填充累计完成情况
+  const expandSJCCompleted = async (index: number) => {
+    const entry = sjcEntries[index];
+    if (!entry.content.trim()) { alert('请先填写工作内容'); return; }
+    if (!apiKey.trim()) { alert('请先设置 API Key'); return; }
+
+    setLoading(true);
+    try {
+      const prompt = `请根据以下工作记录，生成累计完成情况描述。
+
+工作内容：${entry.content}
+项目：${entry.project}
+状态：${entry.status === 'done' ? '已完成' : '进行中'}
+
+请描述截至目前的工作完成进度，用流畅的句子表述即可。`;
+
+      const config = MODEL_CONFIGS[aiModel];
+      const response = await fetch(config.endpoint, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model: config.model, messages: [{ role: 'user', content: prompt }], max_tokens: 512 }),
+      });
+      const data = await response.json();
+      if (data.error) { alert(`API 错误：${data.error.message}`); return; }
+      const text = data.choices?.[0]?.message?.content || '';
+      if (text) {
+        updateSJCEntry(index, 'completed', text);
+      } else { alert('生成失败'); }
+    } catch (e) { alert(`生成失败：${e}`); }
+    finally { setLoading(false); }
+  };
+
+  // AI生成未完成情况说明
+  const expandSJCUnfinished = async (index: number) => {
+    const entry = sjcEntries[index];
+    if (!entry.content.trim()) { alert('请先填写工作内容'); return; }
+    if (!apiKey.trim()) { alert('请先设置 API Key'); return; }
+
+    setLoading(true);
+    try {
+      const prompt = `请根据以下工作记录，生成未完成情况说明。
+
+工作内容：${entry.content}
+项目：${entry.project}
+
+由于该工作未完成，请生成一段合理的解释说明，包括：
+1. 延迟的原因（客观因素）
+2. 当前进度
+3. 后续推进措施
+
+请用流畅专业的语言表述。`;
+
+      const config = MODEL_CONFIGS[aiModel];
+      const response = await fetch(config.endpoint, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model: config.model, messages: [{ role: 'user', content: prompt }], max_tokens: 512 }),
+      });
+      const data = await response.json();
+      if (data.error) { alert(`API 错误：${data.error.message}`); return; }
+      const text = data.choices?.[0]?.message?.content || '';
+      if (text) {
+        updateSJCEntry(index, 'unfinished', text);
+      } else { alert('生成失败'); }
+    } catch (e) { alert(`生成失败：${e}`); }
+    finally { setLoading(false); }
+  };
+
   const copyTemplate = (template: Template) => {
     navigator.clipboard.writeText(template.content);
     alert(`"${template.name}" 已复制到剪贴板`);
@@ -827,8 +933,11 @@ ${content}
                       <input value={entry.project} onChange={e => updateSJCEntry(index, 'project', e.target.value)} placeholder="简要描述工作项目" className="w-full px-2 py-1.5 text-xs bg-[#161616] border border-[#2a2a2a] rounded-lg text-[#e0e0e0]" />
                     </div>
                     <div className="col-span-2">
-                      <label className="text-xs text-[#888888] block mb-1">本周重点工作内容</label>
-                      <textarea value={entry.content} onChange={e => updateSJCEntry(index, 'content', e.target.value)} placeholder="详细描述本周完成的工作..." className="w-full h-20 px-2 py-1.5 text-xs bg-[#161616] border border-[#2a2a2a] rounded-lg text-[#e0e0e0] resize-none" />
+                      <label className="text-xs text-[#888888] block mb-1">本周重点工作内容 <span className="text-[#22c55e]">(可AI填充)</span></label>
+                      <div className="flex gap-2">
+                        <textarea value={entry.content} onChange={e => updateSJCEntry(index, 'content', e.target.value)} placeholder="简要描述本周工作，或点击AI填充..." className="flex-1 h-20 px-2 py-1.5 text-xs bg-[#161616] border border-[#2a2a2a] rounded-lg text-[#e0e0e0] resize-none" />
+                        <button onClick={() => expandSJCContent(index)} disabled={loading} className="px-3 py-1.5 text-xs bg-[#22c55e] text-white rounded-lg hover:bg-[#16a34a] disabled:opacity-50">AI填充</button>
+                      </div>
                     </div>
                     <div>
                       <label className="text-xs text-[#888888] block mb-1">计划完成时间</label>
@@ -843,12 +952,18 @@ ${content}
                       </select>
                     </div>
                     <div className="col-span-2">
-                      <label className="text-xs text-[#888888] block mb-1">截至本周累计完成情况</label>
-                      <textarea value={entry.completed} onChange={e => updateSJCEntry(index, 'completed', e.target.value)} placeholder="描述完成进度..." className="w-full h-16 px-2 py-1.5 text-xs bg-[#161616] border border-[#2a2a2a] rounded-lg text-[#e0e0e0] resize-none" />
+                      <label className="text-xs text-[#888888] block mb-1">截至本周累计完成情况 <span className="text-[#22c55e]">(可AI填充)</span></label>
+                      <div className="flex gap-2">
+                        <textarea value={entry.completed} onChange={e => updateSJCEntry(index, 'completed', e.target.value)} placeholder="描述完成进度..." className="flex-1 h-16 px-2 py-1.5 text-xs bg-[#161616] border border-[#2a2a2a] rounded-lg text-[#e0e0e0] resize-none" />
+                        <button onClick={() => expandSJCCompleted(index)} disabled={loading} className="px-3 py-1 text-xs bg-[#3b82f6] text-white rounded-lg hover:bg-[#2563eb] disabled:opacity-50">AI填充</button>
+                      </div>
                     </div>
                     <div className="col-span-2">
-                      <label className="text-xs text-[#888888] block mb-1">未完成情况说明</label>
-                      <textarea value={entry.unfinished} onChange={e => updateSJCEntry(index, 'unfinished', e.target.value)} placeholder="如未完成，说明原因..." className="w-full h-16 px-2 py-1.5 text-xs bg-[#161616] border border-[#2a2a2a] rounded-lg text-[#e0e0e0] resize-none" />
+                      <label className="text-xs text-[#888888] block mb-1">未完成情况说明 <span className="text-[#22c55e]">(可AI生成)</span></label>
+                      <div className="flex gap-2">
+                        <textarea value={entry.unfinished} onChange={e => updateSJCEntry(index, 'unfinished', e.target.value)} placeholder="如未完成，说明原因..." className="flex-1 h-16 px-2 py-1.5 text-xs bg-[#161616] border border-[#2a2a2a] rounded-lg text-[#e0e0e0] resize-none" />
+                        <button onClick={() => expandSJCUnfinished(index)} disabled={loading} className="px-3 py-1 text-xs bg-[#f59e0b] text-white rounded-lg hover:bg-[#d97706] disabled:opacity-50">AI生成</button>
+                      </div>
                     </div>
                   </div>
                 </div>
