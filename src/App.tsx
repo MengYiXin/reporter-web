@@ -506,13 +506,37 @@ function App() {
       if (!content.trim()) { setGeneratedReport('请输入工作内容'); return; }
 
       const period = reportType === 'daily' ? '日报' : reportType === 'weekly' ? '周报' : '月报';
-      const prompt = `请根据以下工作内容，生成标准的${period}。日期：${targetDate}。工作内容：${content}。格式要求：【姓名${period}】日期：${targetDate}。一、今日/本周完成工作总结1. （按优先级列出）。二、明日/下周工作计划1. （列出）。三、总结。请直接输出${period}内容。`;
+      const systemPrompt = `你是科技公司高管助理，擅长撰写简洁专业的工作汇报。
+
+【输出风格】
+- 语言简洁精炼，避免废话
+- 使用主动句式，动作主体明确
+- 量化成果（如：效率提升40%、交付3个模块）
+- 语气专业自信，不卑不亢
+
+【格式规范】
+- 标题：【姓名${period}】
+- 日期：YYYY-MM-DD
+- 一、今日/本周完成工作总结（分点列举，每点一行）
+- 二、明日/下周工作计划（分点列举，每点一行）
+- 三、总结（一句话概括）
+
+【注意事项】
+- 只输出内容，不做任何说明
+- 内容从执行者视角撰写
+- 工作内容按重要性排序`;
+
+      const userPrompt = `请根据以下工作内容，生成标准的${period}：
+
+日期：${targetDate}
+工作内容：
+${content}`;
 
       const config = MODEL_CONFIGS[aiModel];
       const response = await fetch(config.endpoint, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model: config.model, messages: [{ role: 'user', content: prompt }], max_tokens: 2048 }),
+        body: JSON.stringify({ model: config.model, messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: userPrompt }], max_tokens: 2048 }),
       });
       const data = await response.json();
       if (data.error) { setGeneratedReport(`API 错误：${data.error.message}`); return; }
@@ -547,39 +571,51 @@ function App() {
         `【${c.name}】\n本周完成情况：${c.entry.thisWeek || '无'}\n累计完成情况：${c.entry.cumulative || '无'}\n下一步工作计划：${c.entry.nextWeek || '无'}\n存在问题：${c.entry.issues || '无'}\n需协调解决事项：${c.entry.coordination || '无'}\n分管领导：${c.entry.leader || '无'}\n责任人：${c.entry.owner || '无'}`
       ).join('\n\n');
 
-      const prompt = `请根据以下三江供应链公司周报内容，生成标准的周报。
+      const systemPrompt = `你是三江供应链公司办公室秘书，擅长撰写国企风格的正式工作汇报。
 
-日期范围：${weekRange}
-部门：${weekData.department}
+【输出风格】
+- 语言正式严谨，符合国企公文规范
+- 体现政治站位和责任担当
+- 工作表述客观准确，忌夸大邀功
+- 善于用"持续推进"、"扎实开展"、"有效落实"等国企常用表达
 
-工作记录：
-${content}
-
-请按以下格式生成周报：
+【格式规范】
+严格按以下结构输出：
 
 【三江供应链公司重点工作推进情况表】
 日期范围：${weekRange}
 部门：${weekData.department}
 
 一、本周完成工作情况
-（按板块分类列出各项工作的完成情况）
+（按板块分类，每板块用小标题，列出具体工作及完成情况）
 
 二、下周工作计划
-（列出各项工作的下周计划）
+（按板块分类，每板块列出下周计划）
 
 三、存在问题
-（如有）
+（如实反映，简洁扼要）
 
 四、需协调解决事项
-（如有需领导协调解决的问题）
+（如有需上级领导协调的问题，列明具体事项）
 
-请直接输出周报内容，不需要其他说明。`;
+【注意事项】
+- 只输出内容，不做任何说明解释
+- 内容真实准确，不弄虚作假
+- 问题部分不回避，实事求是`;
+
+      const userPrompt = `请根据以下工作记录，生成周报：
+
+日期范围：${weekRange}
+部门：${weekData.department}
+
+工作记录：
+${content}`;
 
       const config = MODEL_CONFIGS[aiModel];
       const response = await fetch(config.endpoint, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model: config.model, messages: [{ role: 'user', content: prompt }], max_tokens: 2048 }),
+        body: JSON.stringify({ model: config.model, messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: userPrompt }], max_tokens: 2048 }),
       });
       const data = await response.json();
       if (data.error) { setGeneratedReport(`API 错误：${data.error.message}`); return; }
@@ -604,14 +640,22 @@ ${content}
     let retries = 2;
     const timeoutMs = 30000; // 30秒超时
 
+    const systemPrompt = `你是三江供应链公司办公室秘书，擅长撰写国企风格的正式工作汇报。
+
+【风格要求】
+- 语言正式严谨，符合国企公文规范
+- 善于用"持续推进"、"扎实开展"、"有效落实"等国企常用表达
+- 工作表述客观准确，量化成果（如完成率、覆盖率等）
+- 只输出内容，不做任何说明`;
+
     while (retries >= 0) {
       try {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
-        let prompt = '';
+        let userPrompt = '';
         if (field === 'thisWeek') {
-          prompt = `请根据以下工作板块的名称，生成该板块的本周工作描述。
+          userPrompt = `请根据以下工作板块的名称，生成该板块的本周工作描述。
 
 板块名称：${category.name}
 已有内容：${entry.thisWeek || '无'}
@@ -624,7 +668,7 @@ ${content}
           const lastWeekStart = getLastWeekStart(currentWeekStart);
           const lastWeekData = lastWeekStart ? sjcArchive[lastWeekStart] : null;
           const lastCategory = lastWeekData?.categories.find(c => c.name === category.name);
-          prompt = `请根据以下信息，生成累计完成情况描述。
+          userPrompt = `请根据以下信息，生成累计完成情况描述。
 
 板块：${category.name}
 本周完成：${entry.thisWeek}
@@ -636,7 +680,7 @@ ${content}
 只需输出一段文字。`;
         } else if (field === 'nextWeek') {
           // 上下文感知：参考本周完成、累计完成、存在问题
-          prompt = `请根据以下信息，生成下周工作计划。
+          userPrompt = `请根据以下信息，生成下周工作计划。
 
 板块：${category.name}
 本周完成：${entry.thisWeek}
@@ -647,7 +691,7 @@ ${content}
 
 只需输出一段文字。`;
         } else if (field === 'issues') {
-          prompt = `请根据本周工作内容，分析可能存在的问题和困难。
+          userPrompt = `请根据本周工作内容，分析可能存在的问题和困难。
 
 板块：${category.name}
 本周完成：${entry.thisWeek}
@@ -657,7 +701,7 @@ ${content}
 
 只需输出一段文字。`;
         } else if (field === 'coordination') {
-          prompt = `请根据本周工作内容，列出需协调解决的事项。
+          userPrompt = `请根据本周工作内容，列出需协调解决的事项。
 
 板块：${category.name}
 本周完成：${entry.thisWeek}
@@ -668,13 +712,13 @@ ${content}
 只需输出一段文字。`;
         }
 
-        if (!prompt) { setLoading(false); return; }
+        if (!userPrompt) { setLoading(false); return; }
 
         const config = MODEL_CONFIGS[aiModel];
         const response = await fetch(config.endpoint, {
           method: 'POST',
           headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ model: config.model, messages: [{ role: 'user', content: prompt }], max_tokens: 512 }),
+          body: JSON.stringify({ model: config.model, messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: userPrompt }], max_tokens: 512 }),
           signal: controller.signal
         });
         clearTimeout(timeoutId);
@@ -712,6 +756,15 @@ ${content}
     let retries = 2;
     const timeoutMs = 60000; // 60秒超时
 
+    const systemPrompt = `你是三江供应链公司办公室秘书，擅长撰写国企风格的正式工作汇报。
+
+【风格要求】
+- 语言正式严谨，符合国企公文规范
+- 善于用"持续推进"、"扎实开展"、"有效落实"、"稳步推进"等国企常用表达
+- 工作表述客观准确，量化成果（如完成率、覆盖率等）
+- 问题部分实事求是，不回避矛盾
+- 只输出内容，不做任何说明解释`;
+
     while (retries >= 0) {
       try {
         const controller = new AbortController();
@@ -722,7 +775,7 @@ ${content}
         const lastWeekData = lastWeekStart ? sjcArchive[lastWeekStart] : null;
         const lastCategory = lastWeekData?.categories.find(c => c.name === category.name);
 
-        const prompt = `你是一个国企周报助手。请根据以下信息，为"${category.name}"板块生成完整的周报内容。
+        const userPrompt = `请根据以下信息，为"${category.name}"板块生成完整的周报内容。
 
 【本周工作】
 ${category.entry.thisWeek}
@@ -745,7 +798,7 @@ ${lastCategory?.entry.nextWeek || '无'}
         const response = await fetch(config.endpoint, {
           method: 'POST',
           headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ model: config.model, messages: [{ role: 'user', content: prompt }], max_tokens: 1024 }),
+          body: JSON.stringify({ model: config.model, messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: userPrompt }], max_tokens: 1024 }),
           signal: controller.signal
         });
         clearTimeout(timeoutId);
