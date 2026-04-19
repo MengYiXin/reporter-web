@@ -379,6 +379,8 @@ function App() {
   const [sjcArchive, setSjcArchive] = useState<SJCArchive>({});
   const [currentDepartment, setCurrentDepartment] = useState<string>('运营管理二部');
   const [sjcView, setSjcView] = useState<'edit' | 'archive'>('edit');
+  // 聚焦模式：哪个单元格正在编辑（展开）
+  const [focusedCell, setFocusedCell] = useState<{ catIdx: number; field: string } | null>(null);
 
   // 获取当前周数据
   const getCurrentSJCData = (): SJCWeekData | null => {
@@ -1330,7 +1332,7 @@ ${lastCategory?.entry.nextWeek || '无'}
                               {category.carriedFromLastWeek && <span className="ml-1 text-[8px] text-[#f59e0b]">📌延续</span>}
                             </td>
                             {(['thisWeek', 'cumulative', 'nextWeek', 'issues', 'coordination'] as const).map((field) => (
-                              <td key={field} className="px-1 py-1 border border-[#2a2a2a]">
+                              <td key={field} className={`px-1 py-1 border border-[#2a2a2a] ${focusedCell?.catIdx === catIdx && focusedCell?.field === field ? 'bg-[#1a2616] z-10' : ''}`}>
                                 <div className="flex gap-1 items-start">
                                   <button
                                     onClick={() => expandSJCCell(catIdx, field)}
@@ -1340,8 +1342,11 @@ ${lastCategory?.entry.nextWeek || '无'}
                                   <textarea
                                     value={category.entry[field]}
                                     onChange={e => updateSJCCell(catIdx, field, e.target.value)}
+                                    onFocus={() => setFocusedCell({ catIdx, field })}
+                                    onBlur={() => setTimeout(() => setFocusedCell(null), 200)}
+                                    onKeyDown={e => { if (e.key === 'Escape') setFocusedCell(null); }}
                                     placeholder="..."
-                                    className="w-full h-10 bg-transparent text-[#c0c0c0] resize-none outline-none text-[10px]"
+                                    className={`w-full bg-transparent text-[#c0c0c0] resize-none outline-none text-[10px] transition-all duration-200 ${focusedCell?.catIdx === catIdx && focusedCell?.field === field ? 'h-32 min-h-[80px] text-xs' : 'h-10'}`}
                                   />
                                 </div>
                               </td>
@@ -1350,7 +1355,9 @@ ${lastCategory?.entry.nextWeek || '无'}
                               <input
                                 value={category.entry.leader}
                                 onChange={e => updateSJCCell(catIdx, 'leader', e.target.value)}
-                                className="w-full h-6 bg-transparent text-[#c0c0c0] text-xs outline-none"
+                                onFocus={() => setFocusedCell({ catIdx, field: 'leader' })}
+                                onBlur={() => setTimeout(() => setFocusedCell(null), 200)}
+                                className={`w-full bg-transparent text-[#c0c0c0] text-xs outline-none transition-all ${focusedCell?.catIdx === catIdx && focusedCell?.field === 'leader' ? 'h-8 bg-[#1a2616]' : 'h-6'}`}
                               />
                             </td>
                             <td className="px-1 py-1 border border-[#2a2a2a] text-center">
@@ -1388,8 +1395,10 @@ ${lastCategory?.entry.nextWeek || '无'}
                               <textarea
                                 value={category.entry.thisWeek}
                                 onChange={e => updateSJCCell(catIdx, 'thisWeek', e.target.value)}
+                                onFocus={() => setFocusedCell({ catIdx, field: 'thisWeek' })}
+                                onBlur={() => setTimeout(() => setFocusedCell(null), 200)}
                                 placeholder="..."
-                                className="flex-1 h-12 bg-[#161616] border border-[#2a2a2a] rounded text-[#c0c0c0] text-xs p-1 resize-none"
+                                className="flex-1 bg-[#161616] border border-[#2a2a2a] rounded text-[#c0c0c0] text-xs p-1 resize-none transition-all duration-200 focus:min-h-[80px]"
                               />
                               <button
                                 onClick={() => expandSJCCell(catIdx, 'thisWeek')}
@@ -1404,8 +1413,10 @@ ${lastCategory?.entry.nextWeek || '无'}
                               <textarea
                                 value={category.entry.cumulative}
                                 onChange={e => updateSJCCell(catIdx, 'cumulative', e.target.value)}
+                                onFocus={() => setFocusedCell({ catIdx, field: 'cumulative' })}
+                                onBlur={() => setTimeout(() => setFocusedCell(null), 200)}
                                 placeholder="..."
-                                className="flex-1 h-12 bg-[#161616] border border-[#2a2a2a] rounded text-[#c0c0c0] text-xs p-1 resize-none"
+                                className="flex-1 bg-[#161616] border border-[#2a2a2a] rounded text-[#c0c0c0] text-xs p-1 resize-none transition-all duration-200 focus:min-h-[80px]"
                               />
                               <button
                                 onClick={() => expandSJCCell(catIdx, 'cumulative')}
@@ -1420,8 +1431,10 @@ ${lastCategory?.entry.nextWeek || '无'}
                               <textarea
                                 value={category.entry.nextWeek}
                                 onChange={e => updateSJCCell(catIdx, 'nextWeek', e.target.value)}
+                                onFocus={() => setFocusedCell({ catIdx, field: 'nextWeek' })}
+                                onBlur={() => setTimeout(() => setFocusedCell(null), 200)}
                                 placeholder="..."
-                                className="flex-1 h-12 bg-[#161616] border border-[#2a2a2a] rounded text-[#c0c0c0] text-xs p-1 resize-none"
+                                className="flex-1 bg-[#161616] border border-[#2a2a2a] rounded text-[#c0c0c0] text-xs p-1 resize-none transition-all duration-200 focus:min-h-[80px]"
                               />
                               <button
                                 onClick={() => expandSJCCell(catIdx, 'nextWeek')}
