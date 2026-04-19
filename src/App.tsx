@@ -9,7 +9,6 @@ interface DayEntry {
   date: string;
   dayName: string;
   content: string;
-  weekIndex: number;
 }
 
 interface ModelConfig {
@@ -316,21 +315,21 @@ const MODEL_CONFIGS: Record<AIModel, ModelConfig> = {
   },
 };
 
-function getWeeks(baseDate: Date = new Date()): { weekStart: string; days: DayEntry[] }[] {
-  const weeks: { weekStart: string; days: DayEntry[] }[] = [];
+function getWeeks(): { weekStart: string; days: DayEntry[]; label: string }[] {
+  const weeks: { weekStart: string; days: DayEntry[]; label: string }[] = [];
   const dayNames = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
 
-  // Get the Monday of current week
-  const currentDate = new Date(baseDate);
+  const currentDate = new Date();
   const dayOfWeek = currentDate.getDay();
   const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
-  currentDate.setDate(currentDate.getDate() + mondayOffset);
+  const currentMonday = new Date(currentDate);
+  currentMonday.setDate(currentDate.getDate() + mondayOffset);
 
-  // Generate 3 weeks: previous, current, next
   for (let weekOffset = -1; weekOffset <= 1; weekOffset++) {
-    const weekStart = new Date(currentDate);
+    const weekStart = new Date(currentMonday);
     weekStart.setDate(weekStart.getDate() + weekOffset * 7);
     const weekStartStr = weekStart.toISOString().split('T')[0];
+    const label = weekOffset === -1 ? '上周' : weekOffset === 0 ? '本周' : '下周';
 
     const days: DayEntry[] = [];
     for (let i = 0; i < 5; i++) {
@@ -340,10 +339,9 @@ function getWeeks(baseDate: Date = new Date()): { weekStart: string; days: DayEn
         date: d.toISOString().split('T')[0],
         dayName: dayNames[d.getDay()],
         content: '',
-        weekIndex: weekOffset + 1,
       });
     }
-    weeks.push({ weekStart: weekStartStr, days });
+    weeks.push({ weekStart: weekStartStr, days, label });
   }
 
   return weeks;
@@ -368,7 +366,7 @@ function App() {
   const [viewMode, setViewMode] = useState<ViewMode>('calendar');
   const [reportType, setReportType] = useState<ReportType>('daily');
   const [reportStyle, setReportStyle] = useState<ReportStyle>('standard');
-  const [allDays, setAllDays] = useState<DayEntry[]>([]);
+  const [allData, setAllData] = useState<Record<string, DayEntry[]>>({});
   const [selectedDay, setSelectedDay] = useState<string>('');
   const [generatedReport, setGeneratedReport] = useState('');
   const [loading, setLoading] = useState(false);
@@ -381,45 +379,43 @@ function App() {
   const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth < 768);
-    };
+    const checkMobile = () => setIsMobile(window.innerWidth < 768);
     checkMobile();
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  // Initialize weeks
+  // Initialize weeks and load saved data
   useEffect(() => {
     const weeks = getWeeks();
-    const middleWeek = weeks[1];
-    setCurrentWeekStart(middleWeek.weekStart);
-    setAllDays(middleWeek.days);
+    const currentWeek = weeks[1];
+    setCurrentWeekStart(currentWeek.weekStart);
 
-    // Load saved data for all 3 weeks
+    // Initialize empty data structure
+    const initialData: Record<string, DayEntry[]> = {};
+    weeks.forEach(w => {
+      initialData[w.weekStart] = w.days;
+    });
+    setAllData(initialData);
+
+    // Load from localStorage
     const saved = localStorage.getItem('weekEntries');
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        if (parsed.days) {
-          // Load single week data (backward compatibility)
-          if (parsed.weekStart === middleWeek.weekStart) {
-            setAllDays(parsed.days);
-          }
-        } else if (parsed.weekEntries) {
-          // Load multi-week data from Gist
-          const allDaysFlat: DayEntry[] = [];
-          weeks.forEach(week => {
-            const weekData = parsed.weekEntries[week.weekStart];
-            if (weekData) {
-              weekData.forEach((day: DayEntry) => {
-                allDaysFlat.push({ ...day, weekIndex: weeks.indexOf(week) });
-              });
-            }
+        if (parsed.weekEntries) {
+          setAllData(prev => {
+            const updated = { ...prev };
+            Object.keys(parsed.weekEntries).forEach(key => {
+              if (updated[key]) {
+                updated[key] = parsed.weekEntries[key];
+              }
+            });
+            return updated;
           });
-          if (allDaysFlat.length > 0) {
-            setAllDays(allDaysFlat);
-          }
+        } else if (parsed.days && parsed.weekStart) {
+          // Legacy format - single week
+          setAllData(prev => ({ ...prev, [parsed.weekStart]: parsed.days }));
         }
       } catch (e) {
         console.error('Failed to load saved entries');
@@ -429,40 +425,25 @@ function App() {
 
   // Save to localStorage
   useEffect(() => {
-    if (allDays.length > 0 && currentWeekStart) {
+    if (Object.keys(allData).length > 0) {
       localStorage.setItem('weekEntries', JSON.stringify({
-        weekStart: currentWeekStart,
-        days: allDays
+        apiKey,
+        aiModel,
+        weekEntries: allData
       }));
     }
-  }, [allDays, currentWeekStart]);
-
-  const goToPrevWeek = () => {
-    const weeks = getWeeks();
-    const prevWeek = weeks[0];
-    setCurrentWeekStart(prevWeek.weekStart);
-    setAllDays(prevWeek.days);
-    setSelectedDay('');
-  };
-
-  const goToNextWeek = () => {
-    const weeks = getWeeks();
-    const nextWeek = weeks[2];
-    setCurrentWeekStart(nextWeek.weekStart);
-    setAllDays(nextWeek.days);
-    setSelectedDay('');
-  };
-
-  const goToToday = () => {
-    const weeks = getWeeks();
-    const todayWeek = weeks[1];
-    setCurrentWeekStart(todayWeek.weekStart);
-    setAllDays(todayWeek.days);
-    setSelectedDay('');
-  };
+  }, [allData, apiKey, aiModel]);
 
   const updateDayContent = (date: string, content: string) => {
-    setAllDays(allDays.map(d => (d.date === date ? { ...d, content } : d)));
+    setAllData(prev => {
+      const updated = { ...prev };
+      Object.keys(updated).forEach(weekStart => {
+        updated[weekStart] = updated[weekStart].map(d =>
+          d.date === date ? { ...d, content } : d
+        );
+      });
+      return updated;
+    });
   };
 
   const uploadToGithub = async () => {
@@ -475,9 +456,7 @@ function App() {
       const storedData: StoredData = {
         apiKey,
         aiModel,
-        weekEntries: {
-          [currentWeekStart]: allDays.map(d => ({ date: d.date, dayName: d.dayName, content: d.content }))
-        }
+        weekEntries: allData
       };
       const content = JSON.stringify(storedData, null, 2);
 
@@ -489,9 +468,7 @@ function App() {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            files: {
-              [GIST_FILENAME]: { content }
-            }
+            files: { [GIST_FILENAME]: { content } }
           })
         });
       } else {
@@ -504,9 +481,7 @@ function App() {
           body: JSON.stringify({
             description: 'Weekly Reporter Data',
             public: false,
-            files: {
-              [GIST_FILENAME]: { content }
-            }
+            files: { [GIST_FILENAME]: { content } }
           })
         });
         const data = await response.json();
@@ -516,7 +491,7 @@ function App() {
         }
       }
       setSyncStatus('success');
-      alert('上传成功！');
+      alert('上传成功！数据已同步到 GitHub');
       setTimeout(() => setSyncStatus('idle'), 2000);
     } catch (e) {
       console.error('Failed to upload:', e);
@@ -550,13 +525,10 @@ function App() {
             localStorage.setItem('ai_model', parsed.aiModel);
           }
           if (parsed.weekEntries) {
-            const entry = Object.values(parsed.weekEntries)[0] as { date: string; dayName: string; content: string }[];
-            if (entry) {
-              setAllDays(entry.map(d => ({ ...d, weekIndex: 1 })));
-            }
+            setAllData(parsed.weekEntries);
           }
           setSyncStatus('success');
-          alert('下载成功！');
+          alert('下载成功！所有周的数据已恢复');
         } else {
           alert('Gist 中没有找到数据文件');
           setSyncStatus('error');
@@ -571,6 +543,58 @@ function App() {
       alert('下载失败！');
     }
     setTimeout(() => setSyncStatus('idle'), 2000);
+  };
+
+  const exportToJson = () => {
+    const dataToExport: StoredData = {
+      apiKey,
+      aiModel,
+      weekEntries: allData
+    };
+    const blob = new Blob([JSON.stringify(dataToExport, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `weekly-reporter-backup-${new Date().toISOString().split('T')[0]}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    alert('导出成功！');
+  };
+
+  const importFromJson = () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json';
+    input.onchange = (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          try {
+            const content = event.target?.result as string;
+            const parsed: StoredData = JSON.parse(content);
+            if (parsed.weekEntries) {
+              setAllData(parsed.weekEntries);
+              if (parsed.apiKey) {
+                setApiKey(parsed.apiKey);
+                localStorage.setItem('ai_api_key', parsed.apiKey);
+              }
+              if (parsed.aiModel) {
+                setAiModel(parsed.aiModel as AIModel);
+                localStorage.setItem('ai_model', parsed.aiModel);
+              }
+              alert('导入成功！');
+            } else {
+              alert('文件格式不正确');
+            }
+          } catch (err) {
+            alert('导入失败：文件格式错误');
+          }
+        };
+        reader.readAsText(file);
+      }
+    };
+    input.click();
   };
 
   const getReportPrompt = (rt: string, rs: string, date: string, content: string): string => {
@@ -600,23 +624,29 @@ function App() {
 
       let content = '';
       let targetDate = '';
+      const weeks = getWeeks();
+      const currentWeekData = allData[currentWeekStart] || weeks[1].days;
 
       if (reportType === 'daily') {
-        const day = allDays.find(d => d.date === selectedDay);
-        if (!day) {
-          setGeneratedReport('请选择一个日期');
+        if (!selectedDay) {
+          setGeneratedReport('请先选择一个日期');
           return;
         }
-        content = day.content;
+        const dayEntry = Object.values(allData).flat().find(d => d.date === selectedDay);
+        if (!dayEntry) {
+          setGeneratedReport('日期数据不存在');
+          return;
+        }
+        content = dayEntry.content;
         targetDate = selectedDay;
       } else {
-        const filledDays = allDays.filter(d => d.content.trim());
+        const filledDays = Object.values(allData).flat().filter(d => d.content.trim());
         if (filledDays.length === 0) {
           setGeneratedReport('请至少填写一天的工作内容');
           return;
         }
         content = filledDays.map(d => `${d.dayName} (${d.date}):\n${d.content}`).join('\n\n');
-        targetDate = `${allDays[0].date} 至 ${allDays[4].date}`;
+        targetDate = `${currentWeekData[0]?.date || ''} 至 ${currentWeekData[4]?.date || ''}`;
       }
 
       if (!content.trim()) {
@@ -674,7 +704,7 @@ function App() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${reportType}_${selectedDay}.md`;
+    a.download = `${reportType}_${selectedDay || new Date().toISOString().split('T')[0]}.md`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -752,8 +782,20 @@ function App() {
           >
             {syncStatus === 'syncing' ? '下载中...' : '从 GitHub 下载'}
           </button>
+          <button
+            onClick={exportToJson}
+            className="px-3 py-1.5 text-xs bg-[#1c1c1c] text-[#b0b0b0] rounded-lg hover:bg-[#252525] hover:text-white transition border border-[#2a2a2a]"
+          >
+            导出备份
+          </button>
+          <button
+            onClick={importFromJson}
+            className="px-3 py-1.5 text-xs bg-[#1c1c1c] text-[#b0b0b0] rounded-lg hover:bg-[#252525] hover:text-white transition border border-[#2a2a2a]"
+          >
+            导入备份
+          </button>
           <span className="text-xs text-[#666666] self-center ml-2">
-            {gistId ? `已绑定 Gist: ${gistId.substring(0, 10)}...` : '未绑定 Gist'}
+            {gistId ? `Gist: ${gistId.substring(0, 10)}...` : '未绑定'}
           </span>
         </div>
 
@@ -778,20 +820,10 @@ function App() {
         {viewMode === 'calendar' && (
           <div className="bg-[#111111] rounded-2xl p-4 sm:p-6 border border-[#1f1f1f]">
             <div className="flex items-center justify-between mb-4">
-              <div className="flex gap-2">
-                <button onClick={goToPrevWeek} className="p-2 hover:bg-[#1c1c1c] rounded-lg transition border border-transparent hover:border-[#2a2a2a]">
-                  <svg className="w-4 h-4 text-[#666666]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                  </svg>
-                </button>
-                <button onClick={goToToday} className="px-3 py-1.5 text-xs text-[#888888] hover:bg-[#1c1c1c] rounded-lg transition hover:text-[#b0b0b0] border border-transparent hover:border-[#2a2a2a]">今天</button>
-                <button onClick={goToNextWeek} className="p-2 hover:bg-[#1c1c1c] rounded-lg transition border border-transparent hover:border-[#2a2a2a]">
-                  <svg className="w-4 h-4 text-[#666666]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                  </svg>
-                </button>
-              </div>
-              <span className="text-xs text-[#666666] font-medium">
+              <span className="text-xs text-[#666666] self-center">
+                {gistId ? '' : '点击日期可直接选择并跳转到输入'}
+              </span>
+              <span className="text-xs text-[#3b82f6] font-medium">
                 {formatWeekLabel(currentWeekStart)}
               </span>
             </div>
@@ -799,18 +831,18 @@ function App() {
             {/* 3 Weeks Display */}
             <div className="space-y-4">
               {getWeeks().map((week, weekIdx) => {
-                const weekLabel = weekIdx === 0 ? '上周' : weekIdx === 1 ? '本周' : '下周';
                 const isCurrentWeek = weekIdx === 1;
+                const weekData = allData[week.weekStart] || week.days;
                 return (
                   <div key={week.weekStart}>
                     <div className={`text-xs font-medium mb-2 ${isCurrentWeek ? 'text-[#3b82f6]' : 'text-[#666666]'}`}>
-                      {weekLabel} · {formatWeekLabel(week.weekStart)}
+                      {week.label} · {formatWeekLabel(week.weekStart)}
                     </div>
                     <div className={`grid gap-2 sm:gap-3 ${isMobile ? 'grid-cols-3 sm:grid-cols-5' : 'grid-cols-5'}`}>
-                      {week.days.map(day => (
+                      {weekData.map(day => (
                         <div
                           key={day.date}
-                          onClick={() => { setSelectedDay(day.date); setViewMode('input'); }}
+                          onClick={() => { setSelectedDay(day.date); setCurrentWeekStart(week.weekStart); setViewMode('input'); }}
                           className={`p-2 sm:p-3 rounded-lg cursor-pointer transition-all text-xs ${
                             selectedDay === day.date
                               ? 'bg-gradient-to-br from-[#3b82f6] to-[#1d4ed8] text-white shadow-lg shadow-blue-500/20 ring-2 ring-blue-500 ring-offset-2 ring-offset-[#111111]'
@@ -865,16 +897,44 @@ function App() {
                 <option value="simple">简洁格式</option>
               </select>
               {reportType === 'daily' && (
-                <input type="date" value={selectedDay} onChange={e => setSelectedDay(e.target.value)} className="px-3 py-2 text-xs sm:text-sm bg-[#161616] border border-[#2a2a2a] rounded-xl text-[#e0e0e0] focus:outline-none focus:ring-1 focus:ring-[#3b82f6]" />
+                <input
+                  type="date"
+                  value={selectedDay}
+                  onChange={e => setSelectedDay(e.target.value)}
+                  className="px-3 py-2 text-xs sm:text-sm bg-[#161616] border border-[#2a2a2a] rounded-xl text-[#e0e0e0] focus:outline-none focus:ring-1 focus:ring-[#3b82f6]"
+                />
               )}
             </div>
 
-            <textarea
-              placeholder={reportType === 'daily' ? '输入今日工作内容...' : reportType === 'weekly' ? '输入本周工作内容汇总...' : '输入本月工作内容汇总...'}
-              value={reportType === 'daily' ? allDays.find(d => d.date === selectedDay)?.content || '' : allDays.filter(d => d.content.trim()).map(d => `[${d.dayName}] ${d.content}`).join('\n\n')}
-              onChange={e => { if (reportType === 'daily') updateDayContent(selectedDay, e.target.value); }}
-              className="w-full h-48 sm:h-64 px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm bg-[#161616] border border-[#2a2a2a] rounded-xl text-[#e0e0e0] resize-none focus:outline-none focus:ring-1 focus:ring-[#3b82f6]"
-            />
+            {reportType === 'daily' ? (
+              <>
+                <div className="mb-2 text-xs text-[#888888]">
+                  当前选择：{selectedDay ? formatDateDisplay(selectedDay) : '请在日历中选择日期'}
+                </div>
+                <textarea
+                  placeholder="输入今日工作内容..."
+                  value={(() => {
+                    const day = Object.values(allData).flat().find(d => d.date === selectedDay);
+                    return day?.content || '';
+                  })()}
+                  onChange={e => updateDayContent(selectedDay, e.target.value)}
+                  className="w-full h-48 sm:h-64 px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm bg-[#161616] border border-[#2a2a2a] rounded-xl text-[#e0e0e0] resize-none focus:outline-none focus:ring-1 focus:ring-[#3b82f6]"
+                />
+              </>
+            ) : (
+              <>
+                <div className="mb-2 text-xs text-[#888888]">
+                  本周已填写 {Object.values(allData).flat().filter(d => d.content.trim()).length} 天
+                </div>
+                <textarea
+                  placeholder="输入本周工作内容汇总..."
+                  value={Object.values(allData).flat().filter(d => d.content.trim()).map(d => `[${d.dayName}] ${d.content}`).join('\n\n')}
+                  onChange={() => {}}
+                  readOnly
+                  className="w-full h-48 sm:h-64 px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm bg-[#0d0d0d] border border-[#2a2a2a] rounded-xl text-[#888888] resize-none"
+                />
+              </>
+            )}
 
             <button onClick={handleGenerate} disabled={loading} className="w-full mt-4 py-3 bg-gradient-to-r from-[#3b82f6] to-[#1d4ed8] text-white text-sm font-medium rounded-xl hover:opacity-90 transition disabled:opacity-50 shadow-lg shadow-blue-500/20">
               {loading ? '生成中...' : '生成报告'}
@@ -949,7 +1009,7 @@ function App() {
         {/* Footer */}
         {viewMode === 'calendar' && (
           <div className="mt-4 sm:mt-6 text-center text-xs text-[#444444]">
-            点击日期卡片可直接填写 · 数据默认保存在本地
+            数据保存在本地 · 上传 GitHub 可多设备同步
           </div>
         )}
       </div>
