@@ -2,8 +2,9 @@ import { useState, useEffect } from 'react';
 
 type ReportType = 'daily' | 'weekly' | 'monthly';
 type ReportStyle = 'standard' | 'simple';
-type ViewMode = 'calendar' | 'input' | 'result' | 'templates';
+type ViewMode = 'calendar' | 'input' | 'result' | 'templates' | 'sjc';
 type AIModel = 'kimi' | 'deepseek' | 'zhipu' | 'qwen' | 'ernie';
+type UserMode = 'm' | 'y' | null;
 
 interface DayEntry {
   date: string;
@@ -26,16 +27,16 @@ interface Template {
   type: 'daily' | 'weekly' | 'monthly';
 }
 
-interface StoredData {
-  apiKey: string;
-  aiModel: string;
-  weekEntries: {
-    [weekStart: string]: {
-      date: string;
-      dayName: string;
-      content: string;
-    }[];
-  };
+interface SJCEntry {
+  date: string;
+  project: string;
+  category: string;
+  content: string;
+  planDate: string;
+  completed: string;
+  unfinished: string;
+  owner: string;
+  status: 'done' | 'undone' | '';
 }
 
 const GIST_FILENAME = 'weekly-reporter-data.json';
@@ -282,43 +283,32 @@ const TEMPLATES: Template[] = [
   }
 ];
 
+const SJC_CATEGORIES = [
+  '办文办会',
+  '后勤工作',
+  '公司设立/划转/股权',
+  '人力资源管理',
+  '安全管理',
+  '信息化建设',
+  '财务相关',
+  '采购管理',
+  '项目管理',
+  '战略规划',
+  '党建相关',
+  '其他'
+];
+
 const MODEL_CONFIGS: Record<AIModel, ModelConfig> = {
-  kimi: {
-    name: 'Kimi (月之暗面)',
-    endpoint: 'https://api.moonshot.cn/v1/chat/completions',
-    model: 'moonshot-v1-8k',
-    keyPlaceholder: 'sk-... (Kimi)',
-  },
-  deepseek: {
-    name: 'DeepSeek',
-    endpoint: 'https://api.deepseek.com/chat/completions',
-    model: 'deepseek-chat',
-    keyPlaceholder: 'sk-... (DeepSeek)',
-  },
-  zhipu: {
-    name: '智谱 GLM',
-    endpoint: 'https://open.bigmodel.cn/api/paas/v4/chat/completions',
-    model: 'glm-4-flash',
-    keyPlaceholder: 'sk-... (智谱)',
-  },
-  qwen: {
-    name: '阿里 Qwen',
-    endpoint: 'https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation',
-    model: 'qwen-turbo',
-    keyPlaceholder: 'sk-... (阿里)',
-  },
-  ernie: {
-    name: '百度文心',
-    endpoint: 'https://qianfan.baidutop.com/v2/chat/completions',
-    model: 'ernie-4.0-8k-lark',
-    keyPlaceholder: 'sk-... (百度)',
-  },
+  kimi: { name: 'Kimi', endpoint: 'https://api.moonshot.cn/v1/chat/completions', model: 'moonshot-v1-8k', keyPlaceholder: 'sk-...' },
+  deepseek: { name: 'DeepSeek', endpoint: 'https://api.deepseek.com/chat/completions', model: 'deepseek-chat', keyPlaceholder: 'sk-...' },
+  zhipu: { name: '智谱 GLM', endpoint: 'https://open.bigmodel.cn/api/paas/v4/chat/completions', model: 'glm-4-flash', keyPlaceholder: 'sk-...' },
+  qwen: { name: '阿里 Qwen', endpoint: 'https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation', model: 'qwen-turbo', keyPlaceholder: 'sk-...' },
+  ernie: { name: '百度文心', endpoint: 'https://qianfan.baidutop.com/v2/chat/completions', model: 'ernie-4.0-8k-lark', keyPlaceholder: 'sk-...' },
 };
 
 function getWeeks(): { weekStart: string; days: DayEntry[]; label: string }[] {
   const weeks: { weekStart: string; days: DayEntry[]; label: string }[] = [];
   const dayNames = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
-
   const currentDate = new Date();
   const dayOfWeek = currentDate.getDay();
   const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
@@ -327,34 +317,25 @@ function getWeeks(): { weekStart: string; days: DayEntry[]; label: string }[] {
 
   for (let weekOffset = -1; weekOffset <= 1; weekOffset++) {
     const weekStart = new Date(currentMonday);
-    weekStart.setDate(weekStart.getDate() + weekOffset * 7);
+    weekStart.setDate(currentMonday.getDate() + weekOffset * 7);
     const weekStartStr = weekStart.toISOString().split('T')[0];
     const label = weekOffset === -1 ? '上周' : weekOffset === 0 ? '本周' : '下周';
-
     const days: DayEntry[] = [];
     for (let i = 0; i < 5; i++) {
       const d = new Date(weekStart);
       d.setDate(d.getDate() + i);
-      days.push({
-        date: d.toISOString().split('T')[0],
-        dayName: dayNames[d.getDay()],
-        content: '',
-      });
+      days.push({ date: d.toISOString().split('T')[0], dayName: dayNames[d.getDay()], content: '' });
     }
     weeks.push({ weekStart: weekStartStr, days, label });
   }
-
   return weeks;
 }
 
 function formatWeekLabel(weekStart: string): string {
   const d = new Date(weekStart);
-  const month = d.getMonth() + 1;
-  const day = d.getDate();
   const endDay = new Date(d);
   endDay.setDate(endDay.getDate() + 4);
-  const endDayStr = `${endDay.getMonth() + 1}/${endDay.getDate()}`;
-  return `${month}/${day} - ${endDayStr}`;
+  return `${d.getMonth() + 1}/${d.getDate()} - ${endDay.getMonth() + 1}/${endDay.getDate()}`;
 }
 
 function formatDateDisplay(dateStr: string): string {
@@ -362,13 +343,24 @@ function formatDateDisplay(dateStr: string): string {
   return `${d.getMonth() + 1}月${d.getDate()}日`;
 }
 
+function getWeekRange(date: Date = new Date()): string {
+  const dayOfWeek = date.getDay();
+  const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+  const monday = new Date(date);
+  monday.setDate(date.getDate() + mondayOffset);
+  const friday = new Date(monday);
+  friday.setDate(monday.getDate() + 4);
+  return `${monday.getMonth() + 1}月${monday.getDate()}日-${friday.getMonth() + 1}月${friday.getDate()}日`;
+}
+
 function App() {
+  const [userMode, setUserMode] = useState<UserMode>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('calendar');
   const [reportType, setReportType] = useState<ReportType>('daily');
   const [reportStyle, setReportStyle] = useState<ReportStyle>('standard');
   const [allData, setAllData] = useState<Record<string, DayEntry[]>>({});
   const [selectedDay, setSelectedDay] = useState<string>('');
-  const [generatedReport, setGeneratedReport] = useState('');
+  const [generatedReport, setGeneratedReport] = useState<string>('');
   const [loading, setLoading] = useState(false);
   const [currentWeekStart, setCurrentWeekStart] = useState<string>('');
   const [apiKey, setApiKey] = useState<string>(localStorage.getItem('ai_api_key') || '');
@@ -378,6 +370,10 @@ function App() {
   const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'success' | 'error'>('idle');
   const [isMobile, setIsMobile] = useState(false);
 
+  // 三江相关状态
+  const [sjcEntries, setSjcEntries] = useState<SJCEntry[]>([]);
+  const [sjcWeekStart] = useState<string>('');
+
   useEffect(() => {
     const checkMobile = () => setIsMobile(window.innerWidth < 768);
     checkMobile();
@@ -385,116 +381,70 @@ function App() {
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  // Initialize weeks and load saved data
   useEffect(() => {
-    const weeks = getWeeks();
-    const currentWeek = weeks[1];
-    setCurrentWeekStart(currentWeek.weekStart);
-
-    // Initialize empty data structure
-    const initialData: Record<string, DayEntry[]> = {};
-    weeks.forEach(w => {
-      initialData[w.weekStart] = w.days;
-    });
-    setAllData(initialData);
-
-    // Load from localStorage
+    if (!userMode) return;
     const saved = localStorage.getItem('weekEntries');
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        if (parsed.weekEntries) {
-          setAllData(prev => {
-            const updated = { ...prev };
-            Object.keys(parsed.weekEntries).forEach(key => {
-              if (updated[key]) {
-                updated[key] = parsed.weekEntries[key];
-              }
-            });
-            return updated;
-          });
-        } else if (parsed.days && parsed.weekStart) {
-          // Legacy format - single week
-          setAllData(prev => ({ ...prev, [parsed.weekStart]: parsed.days }));
-        }
-      } catch (e) {
-        console.error('Failed to load saved entries');
+        if (parsed.weekEntries) setAllData(parsed.weekEntries);
+        else if (parsed.days && parsed.weekStart) setAllData({ [parsed.weekStart]: parsed.days });
+      } catch (e) { console.error('Failed to load'); }
+    }
+  }, [userMode]);
+
+  useEffect(() => {
+    if (!userMode || userMode === 'y') {
+      const savedSjc = localStorage.getItem('sjc_entries');
+      if (savedSjc) {
+        try { setSjcEntries(JSON.parse(savedSjc)); } catch (e) {}
       }
     }
-  }, []);
+  }, [userMode]);
 
-  // Save to localStorage
   useEffect(() => {
-    if (Object.keys(allData).length > 0) {
-      localStorage.setItem('weekEntries', JSON.stringify({
-        apiKey,
-        aiModel,
-        weekEntries: allData
-      }));
+    if (userMode === 'y' && sjcWeekStart) {
+      localStorage.setItem('sjc_entries', JSON.stringify(sjcEntries));
     }
-  }, [allData, apiKey, aiModel]);
+  }, [sjcEntries, sjcWeekStart, userMode]);
 
   const updateDayContent = (date: string, content: string) => {
     setAllData(prev => {
       const updated = { ...prev };
       Object.keys(updated).forEach(weekStart => {
-        updated[weekStart] = updated[weekStart].map(d =>
-          d.date === date ? { ...d, content } : d
-        );
+        updated[weekStart] = updated[weekStart].map(d => d.date === date ? { ...d, content } : d);
       });
       return updated;
     });
   };
 
   const uploadToGithub = async () => {
-    if (!ghToken) {
-      alert('请先输入 GitHub Token');
-      return;
-    }
+    if (!ghToken) { alert('请先输入 GitHub Token'); return; }
     setSyncStatus('syncing');
     try {
-      const storedData: StoredData = {
-        apiKey,
-        aiModel,
-        weekEntries: allData
+      const storedData = {
+        apiKey, aiModel, userMode,
+        weekEntries: allData,
+        sjcEntries: userMode === 'y' ? sjcEntries : undefined
       };
       const content = JSON.stringify(storedData, null, 2);
-
       if (gistId) {
         await fetch(`https://api.github.com/gists/${gistId}`, {
-          method: 'PATCH',
-          headers: {
-            Authorization: `Bearer ${ghToken}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            files: { [GIST_FILENAME]: { content } }
-          })
+          method: 'PATCH', headers: { Authorization: `Bearer ${ghToken}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ files: { [GIST_FILENAME]: { content } } })
         });
       } else {
         const response = await fetch('https://api.github.com/gists', {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${ghToken}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            description: 'Weekly Reporter Data',
-            public: false,
-            files: { [GIST_FILENAME]: { content } }
-          })
+          method: 'POST', headers: { Authorization: `Bearer ${ghToken}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ description: 'Weekly Reporter Data', public: false, files: { [GIST_FILENAME]: { content } } })
         });
         const data = await response.json();
-        if (data.id) {
-          setGistId(data.id);
-          localStorage.setItem('gist_id', data.id);
-        }
+        if (data.id) { setGistId(data.id); localStorage.setItem('gist_id', data.id); }
       }
       setSyncStatus('success');
-      alert('上传成功！数据已同步到 GitHub');
+      alert('上传成功！');
       setTimeout(() => setSyncStatus('idle'), 2000);
     } catch (e) {
-      console.error('Failed to upload:', e);
       setSyncStatus('error');
       alert('上传失败！');
       setTimeout(() => setSyncStatus('idle'), 2000);
@@ -502,10 +452,7 @@ function App() {
   };
 
   const downloadFromGithub = async () => {
-    if (!ghToken || !gistId) {
-      alert('请先确保已上传过数据，并且 GitHub Token 和 Gist ID 都已设置');
-      return;
-    }
+    if (!ghToken || !gistId) { alert('请先确保已上传过数据'); return; }
     setSyncStatus('syncing');
     try {
       const response = await fetch(`https://api.github.com/gists/${gistId}`, {
@@ -515,203 +462,111 @@ function App() {
         const data = await response.json();
         const content = data.files[GIST_FILENAME]?.content;
         if (content) {
-          const parsed: StoredData = JSON.parse(content);
-          if (parsed.apiKey) {
-            setApiKey(parsed.apiKey);
-            localStorage.setItem('ai_api_key', parsed.apiKey);
-          }
-          if (parsed.aiModel) {
-            setAiModel(parsed.aiModel as AIModel);
-            localStorage.setItem('ai_model', parsed.aiModel);
-          }
-          if (parsed.weekEntries) {
-            setAllData(parsed.weekEntries);
-          }
+          const parsed = JSON.parse(content);
+          if (parsed.weekEntries) setAllData(parsed.weekEntries);
+          if (parsed.sjcEntries) setSjcEntries(parsed.sjcEntries);
+          if (parsed.apiKey) { setApiKey(parsed.apiKey); localStorage.setItem('ai_api_key', parsed.apiKey); }
           setSyncStatus('success');
-          alert('下载成功！所有周的数据已恢复');
-        } else {
-          alert('Gist 中没有找到数据文件');
-          setSyncStatus('error');
+          alert('下载成功！');
         }
-      } else {
-        alert('下载失败，请检查 Token 和 Gist ID 是否正确');
-        setSyncStatus('error');
       }
-    } catch (e) {
-      console.error('Failed to download:', e);
-      setSyncStatus('error');
-      alert('下载失败！');
-    }
+    } catch (e) { setSyncStatus('error'); alert('下载失败！'); }
     setTimeout(() => setSyncStatus('idle'), 2000);
-  };
-
-  const exportToJson = () => {
-    const dataToExport: StoredData = {
-      apiKey,
-      aiModel,
-      weekEntries: allData
-    };
-    const blob = new Blob([JSON.stringify(dataToExport, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `weekly-reporter-backup-${new Date().toISOString().split('T')[0]}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-    alert('导出成功！');
-  };
-
-  const importFromJson = () => {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = '.json';
-    input.onchange = (e) => {
-      const file = (e.target as HTMLInputElement).files?.[0];
-      if (file) {
-        const reader = new FileReader();
-        reader.onload = (event) => {
-          try {
-            const content = event.target?.result as string;
-            const parsed: StoredData = JSON.parse(content);
-            if (parsed.weekEntries) {
-              setAllData(parsed.weekEntries);
-              if (parsed.apiKey) {
-                setApiKey(parsed.apiKey);
-                localStorage.setItem('ai_api_key', parsed.apiKey);
-              }
-              if (parsed.aiModel) {
-                setAiModel(parsed.aiModel as AIModel);
-                localStorage.setItem('ai_model', parsed.aiModel);
-              }
-              alert('导入成功！');
-            } else {
-              alert('文件格式不正确');
-            }
-          } catch (err) {
-            alert('导入失败：文件格式错误');
-          }
-        };
-        reader.readAsText(file);
-      }
-    };
-    input.click();
-  };
-
-  const getReportPrompt = (rt: string, rs: string, date: string, content: string): string => {
-    const period = rt === 'daily' ? '日报' : rt === 'weekly' ? '周报' : '月报';
-    if (rs === 'standard') {
-      if (rt === 'daily') {
-        return `请根据以下工作内容，生成标准的${period}。日期：${date}。工作内容：${content}。格式要求：【姓名日报】日期：${date}。一、今日完成工作总结1. （按优先级列出今日完成的工作）。二、明日工作计划1. （列出明日计划做的工作）。三、总结。请直接输出${period}内容。`;
-      } else if (rt === 'weekly') {
-        return `请根据以下周报内容，生成标准的周报。日期范围：${date}。工作内容：${content}。格式要求：【姓名周报】日期：${date}。一、本周完成工作总结1. （按优先级列出本周完成的工作）。二、下周工作计划1. （列出下周计划做的工作）。三、总结。请直接输出${period}内容。`;
-      } else {
-        return `请根据以下月报内容，生成标准的月报。日期范围：${date}。工作内容：${content}。格式要求：【姓名月报】日期：${date}。一、本月完成工作总结1. （按优先级列出本月完成的工作）。二、下月工作计划1. （列出下月计划做的工作）。三、总结。请直接输出${period}内容。`;
-      }
-    } else {
-      return `请将以下${period}内容整理成简洁格式。工作内容：${content}。格式要求：语言简洁，bullet point列表。请直接输出${period}内容。`;
-    }
   };
 
   const handleGenerate = async () => {
     setLoading(true);
     setGeneratedReport('');
-
     try {
-      if (!apiKey.trim()) {
-        setGeneratedReport('请先设置 API Key');
-        return;
-      }
-
-      let content = '';
-      let targetDate = '';
+      if (!apiKey.trim()) { setGeneratedReport('请先设置 API Key'); return; }
+      let content = '', targetDate = '';
       const weeks = getWeeks();
       const currentWeekData = allData[currentWeekStart] || weeks[1].days;
 
       if (reportType === 'daily') {
-        if (!selectedDay) {
-          setGeneratedReport('请先选择一个日期');
-          return;
-        }
+        if (!selectedDay) { setGeneratedReport('请选择一个日期'); return; }
         const dayEntry = Object.values(allData).flat().find(d => d.date === selectedDay);
-        if (!dayEntry) {
-          setGeneratedReport('日期数据不存在');
-          return;
-        }
-        content = dayEntry.content;
+        content = dayEntry?.content || '';
         targetDate = selectedDay;
       } else {
         const filledDays = Object.values(allData).flat().filter(d => d.content.trim());
-        if (filledDays.length === 0) {
-          setGeneratedReport('请至少填写一天的工作内容');
-          return;
-        }
+        if (filledDays.length === 0) { setGeneratedReport('请至少填写一天的工作内容'); return; }
         content = filledDays.map(d => `${d.dayName} (${d.date}):\n${d.content}`).join('\n\n');
         targetDate = `${currentWeekData[0]?.date || ''} 至 ${currentWeekData[4]?.date || ''}`;
       }
+      if (!content.trim()) { setGeneratedReport('请输入工作内容'); return; }
 
-      if (!content.trim()) {
-        setGeneratedReport(reportType === 'daily' ? '请输入工作内容' : '请至少填写一天的工作内容');
-        return;
-      }
+      const period = reportType === 'daily' ? '日报' : reportType === 'weekly' ? '周报' : '月报';
+      const prompt = `请根据以下工作内容，生成标准的${period}。日期：${targetDate}。工作内容：${content}。格式要求：【姓名${period}】日期：${targetDate}。一、今日/本周完成工作总结1. （按优先级列出）。二、明日/下周工作计划1. （列出）。三、总结。请直接输出${period}内容。`;
 
-      const prompt = getReportPrompt(reportType, reportStyle, targetDate, content);
       const config = MODEL_CONFIGS[aiModel];
-
       const response = await fetch(config.endpoint, {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${apiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: config.model,
-          messages: [{ role: 'user', content: prompt }],
-          max_tokens: 2048,
-        }),
+        headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model: config.model, messages: [{ role: 'user', content: prompt }], max_tokens: 2048 }),
       });
-
       const data = await response.json();
-
-      if (data.error) {
-        setGeneratedReport(`API 错误：${data.error.message || JSON.stringify(data.error)}`);
-        return;
-      }
-
-      let text = '';
-      if (aiModel === 'kimi' || aiModel === 'deepseek' || aiModel === 'qwen') {
-        text = data.choices?.[0]?.message?.content;
-      } else if (aiModel === 'zhipu') {
-        text = data.choices?.[0]?.message?.content;
-      } else if (aiModel === 'ernie') {
-        text = data.result?.choices?.[0]?.message?.content;
-      }
-
-      if (text) {
-        setGeneratedReport(text);
-        setViewMode('result');
-      } else {
-        setGeneratedReport('生成失败：无法解析响应');
-      }
-    } catch (e) {
-      setGeneratedReport(`生成失败：${e}`);
-    } finally {
-      setLoading(false);
-    }
+      if (data.error) { setGeneratedReport(`API 错误：${data.error.message}`); return; }
+      const text = data.choices?.[0]?.message?.content || data.result?.choices?.[0]?.message?.content || '';
+      if (text) { setGeneratedReport(text); setViewMode('result'); }
+      else { setGeneratedReport('生成失败：无法解析响应'); }
+    } catch (e) { setGeneratedReport(`生成失败：${e}`); }
+    finally { setLoading(false); }
   };
 
-  const handleExport = () => {
-    const blob = new Blob([generatedReport], { type: 'text/markdown' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${reportType}_${selectedDay || new Date().toISOString().split('T')[0]}.md`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
+  const generateSJCReport = async () => {
+    setLoading(true);
+    setGeneratedReport('');
+    try {
+      if (!apiKey.trim()) { setGeneratedReport('请先设置 API Key'); return; }
+      const filledEntries = sjcEntries.filter(e => e.content.trim() || e.completed.trim());
+      if (filledEntries.length === 0) { setGeneratedReport('请至少填写一条工作记录'); return; }
 
-  const handleCopy = () => {
-    navigator.clipboard.writeText(generatedReport);
-    alert('已复制到剪贴板');
+      const weekRange = getWeekRange();
+      let content = filledEntries.map(e =>
+        `【${e.category}】\n项目：${e.project}\n工作内容：${e.content}\n计划完成时间：${e.planDate}\n累计完成情况：${e.completed}\n未完成说明：${e.unfinished || '无'}\n责任人：${e.owner}\n状态：${e.status === 'done' ? '已完成' : '未完成'}`
+      ).join('\n\n');
+
+      const prompt = `请根据以下三江供应链公司周报内容，生成标准的周报。
+
+日期范围：${weekRange}
+部门：综合行政部
+
+工作记录：
+${content}
+
+请按以下格式生成周报：
+
+【三江供应链公司重点工作推进情况表】
+日期范围：${weekRange}
+
+一、本周完成工作情况
+（按项目分类列出各项工作的完成情况）
+
+二、下周工作计划
+（列出各项工作的下周计划）
+
+三、未完成事项说明
+（列出未完成的事项及原因）
+
+四、需提请解决事项
+（如有需要领导协调解决的问题）
+
+请直接输出周报内容，不需要其他说明。`;
+
+      const config = MODEL_CONFIGS[aiModel];
+      const response = await fetch(config.endpoint, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model: config.model, messages: [{ role: 'user', content: prompt }], max_tokens: 2048 }),
+      });
+      const data = await response.json();
+      if (data.error) { setGeneratedReport(`API 错误：${data.error.message}`); return; }
+      const text = data.choices?.[0]?.message?.content || '';
+      if (text) { setGeneratedReport(text); setViewMode('result'); }
+      else { setGeneratedReport('生成失败：无法解析响应'); }
+    } catch (e) { setGeneratedReport(`生成失败：${e}`); }
+    finally { setLoading(false); }
   };
 
   const copyTemplate = (template: Template) => {
@@ -719,23 +574,97 @@ function App() {
     alert(`"${template.name}" 已复制到剪贴板`);
   };
 
+  const handleCopy = () => {
+    navigator.clipboard.writeText(generatedReport);
+    alert('已复制到剪贴板');
+  };
+
+  const handleExport = () => {
+    const blob = new Blob([generatedReport], { type: 'text/markdown' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `周报_${new Date().toISOString().split('T')[0]}.md`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const addSJCEntry = () => {
+    const today = new Date().toISOString().split('T')[0];
+    setSjcEntries(prev => [...prev, {
+      date: today, project: '', category: SJC_CATEGORIES[0], content: '',
+      planDate: '', completed: '', unfinished: '', owner: '', status: ''
+    }]);
+  };
+
+  const updateSJCEntry = (index: number, field: keyof SJCEntry, value: string) => {
+    setSjcEntries(prev => prev.map((e, i) => i === index ? { ...e, [field]: value } : e));
+  };
+
+  const deleteSJCEntry = (index: number) => {
+    setSjcEntries(prev => prev.filter((_, i) => i !== index));
+  };
+
+  // User Selection Screen
+  if (!userMode) {
+    return (
+      <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
+        <div className="bg-[#111111] rounded-2xl p-8 border border-[#1f1f1f] max-w-md w-full mx-4">
+          <h1 className="text-2xl font-semibold text-white text-center mb-2">周报助手</h1>
+          <p className="text-[#888888] text-center mb-8">AI 智能报告生成器</p>
+          <p className="text-[#666666] text-center mb-6 text-sm">请选择您的身份</p>
+          <div className="space-y-4">
+            <button
+              onClick={() => setUserMode('m')}
+              className="w-full py-4 px-6 bg-gradient-to-r from-[#3b82f6] to-[#1d4ed8] text-white rounded-xl font-medium text-lg hover:opacity-90 transition"
+            >
+              小蒙 (M)
+              <span className="block text-sm opacity-70 font-normal mt-1">科技公司解决方案岗位</span>
+            </button>
+            <button
+              onClick={() => setUserMode('y')}
+              className="w-full py-4 px-6 bg-gradient-to-r from-[#22c55e] to-[#16a34a] text-white rounded-xl font-medium text-lg hover:opacity-90 transition"
+            >
+              圆圆 (Y)
+              <span className="block text-sm opacity-70 font-normal mt-1">三江集团供应链岗位</span>
+            </button>
+          </div>
+          <p className="text-xs text-[#444444] text-center mt-6">数据保存在本地 · 上传 GitHub 可多设备同步</p>
+        </div>
+      </div>
+    );
+  }
+
+  const isYMode = userMode === 'y';
+
   return (
     <div className="min-h-screen bg-[#0a0a0a]">
       <div className={`max-w-6xl mx-auto px-4 py-6 ${isMobile ? 'px-3' : 'px-6 py-8'}`}>
         {/* Header */}
         <div className={`flex flex-wrap items-center justify-between mb-6 ${isMobile ? 'gap-3' : 'mb-8'}`}>
-          <div>
-            <h1 className={`font-semibold text-white tracking-tight ${isMobile ? 'text-xl' : 'text-2xl'}`}>周报助手</h1>
-            <p className={`text-[#888888] mt-1 ${isMobile ? 'text-xs' : 'text-sm'}`}>AI 智能报告生成器</p>
+          <div className="flex items-center gap-4">
+            <div>
+              <div className="flex items-center gap-2">
+                <h1 className={`font-semibold text-white tracking-tight ${isMobile ? 'text-xl' : 'text-2xl'}`}>
+                  {isYMode ? '圆圆周报助手' : '小蒙周报助手'}
+                </h1>
+                <button
+                  onClick={() => setUserMode(null)}
+                  className="px-2 py-1 text-xs bg-[#1c1c1c] text-[#666666] rounded border border-[#2a2a2a] hover:text-white"
+                >
+                  切换
+                </button>
+              </div>
+              <p className={`text-[#888888] mt-1 ${isMobile ? 'text-xs' : 'text-sm'}`}>
+                {isYMode ? '三江集团供应链 · 国企风格' : 'AI 智能报告生成器'}
+              </p>
+            </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <select
               value={aiModel}
-              onChange={e => {
-                setAiModel(e.target.value as AIModel);
-                localStorage.setItem('ai_model', e.target.value);
-              }}
-              className="px-2 py-1.5 text-xs bg-[#1c1c1c] border border-[#2a2a2a] rounded-lg text-[#e0e0e0] focus:outline-none focus:ring-1 focus:ring-[#3b82f6]"
+              onChange={e => { setAiModel(e.target.value as AIModel); localStorage.setItem('ai_model', e.target.value); }}
+              className="px-2 py-1.5 text-xs bg-[#1c1c1c] border border-[#2a2a2a] rounded-lg text-[#e0e0e0]"
             >
               <option value="kimi">Kimi</option>
               <option value="deepseek">DeepSeek</option>
@@ -743,92 +672,38 @@ function App() {
               <option value="qwen">Qwen</option>
               <option value="ernie">文心</option>
             </select>
-            <input
-              type="password"
-              value={apiKey}
-              onChange={e => {
-                setApiKey(e.target.value);
-                localStorage.setItem('ai_api_key', e.target.value);
-              }}
-              placeholder="API Key"
-              className="px-2 py-1.5 text-xs bg-[#1c1c1c] border border-[#2a2a2a] rounded-lg text-[#e0e0e0] w-24 sm:w-32 focus:outline-none focus:ring-1 focus:ring-[#3b82f6]"
-            />
-            <input
-              type="password"
-              value={ghToken}
-              onChange={e => {
-                setGhToken(e.target.value);
-                localStorage.setItem('gh_token', e.target.value);
-              }}
-              placeholder="GH Token"
-              className="px-2 py-1.5 text-xs bg-[#1c1c1c] border border-[#2a2a2a] rounded-lg text-[#e0e0e0] w-24 sm:w-32 focus:outline-none focus:ring-1 focus:ring-[#3b82f6]"
-            />
+            <input type="password" value={apiKey} onChange={e => { setApiKey(e.target.value); localStorage.setItem('ai_api_key', e.target.value); }} placeholder="API Key" className="px-2 py-1.5 text-xs bg-[#1c1c1c] border border-[#2a2a2a] rounded-lg text-[#e0e0e0] w-24 sm:w-32" />
+            <input type="password" value={ghToken} onChange={e => { setGhToken(e.target.value); localStorage.setItem('gh_token', e.target.value); }} placeholder="GH Token" className="px-2 py-1.5 text-xs bg-[#1c1c1c] border border-[#2a2a2a] rounded-lg text-[#e0e0e0] w-24 sm:w-32" />
           </div>
         </div>
 
         {/* Sync Buttons */}
         <div className="flex flex-wrap gap-2 mb-4">
-          <button
-            onClick={uploadToGithub}
-            disabled={syncStatus === 'syncing'}
-            className="px-3 py-1.5 text-xs bg-[#22c55e] text-white rounded-lg hover:bg-[#16a34a] transition disabled:opacity-50"
-          >
-            {syncStatus === 'syncing' ? '上传中...' : '上传到 GitHub'}
+          <button onClick={uploadToGithub} disabled={syncStatus === 'syncing'} className="px-3 py-1.5 text-xs bg-[#22c55e] text-white rounded-lg hover:bg-[#16a34a] disabled:opacity-50">
+            {syncStatus === 'syncing' ? '上传中...' : '上传'}
           </button>
-          <button
-            onClick={downloadFromGithub}
-            disabled={syncStatus === 'syncing'}
-            className="px-3 py-1.5 text-xs bg-[#3b82f6] text-white rounded-lg hover:bg-[#2563eb] transition disabled:opacity-50"
-          >
-            {syncStatus === 'syncing' ? '下载中...' : '从 GitHub 下载'}
+          <button onClick={downloadFromGithub} disabled={syncStatus === 'syncing'} className="px-3 py-1.5 text-xs bg-[#3b82f6] text-white rounded-lg hover:bg-[#2563eb] disabled:opacity-50">
+            {syncStatus === 'syncing' ? '下载中...' : '下载'}
           </button>
-          <button
-            onClick={exportToJson}
-            className="px-3 py-1.5 text-xs bg-[#1c1c1c] text-[#b0b0b0] rounded-lg hover:bg-[#252525] hover:text-white transition border border-[#2a2a2a]"
-          >
-            导出备份
-          </button>
-          <button
-            onClick={importFromJson}
-            className="px-3 py-1.5 text-xs bg-[#1c1c1c] text-[#b0b0b0] rounded-lg hover:bg-[#252525] hover:text-white transition border border-[#2a2a2a]"
-          >
-            导入备份
-          </button>
-          <span className="text-xs text-[#666666] self-center ml-2">
-            {gistId ? `Gist: ${gistId.substring(0, 10)}...` : '未绑定'}
-          </span>
+          <span className="text-xs text-[#666666] self-center ml-2">{gistId ? `已绑定` : '未绑定'}</span>
         </div>
 
         {/* Navigation Tabs */}
         <div className="flex gap-1 mb-4 bg-[#141414] p-1 rounded-xl border border-[#1f1f1f]">
-          {(['calendar', 'input', 'templates', 'result'] as ViewMode[]).map(tab => (
-            <button
-              key={tab}
-              onClick={() => setViewMode(tab)}
-              className={`flex-1 py-2 px-2 text-xs sm:text-sm font-medium rounded-lg transition-all ${
-                viewMode === tab
-                  ? 'bg-[#1c1c1c] text-white shadow-sm border border-[#2a2a2a]'
-                  : 'text-[#666666] hover:text-[#b0b0b0] hover:bg-[#1a1a1a]'
-              }`}
-            >
-              {tab === 'calendar' ? '日历' : tab === 'input' ? '输入' : tab === 'templates' ? '模板' : '结果'}
+          {(isYMode ? ['sjc', 'result'] : ['calendar', 'input', 'templates', 'result'] as ViewMode[]).map(tab => (
+            <button key={tab} onClick={() => setViewMode(tab as ViewMode)}
+              className={`flex-1 py-2 px-2 text-xs sm:text-sm font-medium rounded-lg transition-all ${viewMode === tab ? 'bg-[#1c1c1c] text-white border border-[#2a2a2a]' : 'text-[#666666] hover:text-[#b0b0b0]'}`}>
+              {tab === 'sjc' ? '工作记录' : tab === 'calendar' ? '日历' : tab === 'input' ? '输入' : tab === 'templates' ? '模板' : '结果'}
             </button>
           ))}
         </div>
 
-        {/* Calendar View */}
-        {viewMode === 'calendar' && (
+        {/* 小蒙模式 - Calendar */}
+        {!isYMode && viewMode === 'calendar' && (
           <div className="bg-[#111111] rounded-2xl p-4 sm:p-6 border border-[#1f1f1f]">
             <div className="flex items-center justify-between mb-4">
-              <span className="text-xs text-[#666666] self-center">
-                {gistId ? '' : '点击日期可直接选择并跳转到输入'}
-              </span>
-              <span className="text-xs text-[#3b82f6] font-medium">
-                {formatWeekLabel(currentWeekStart)}
-              </span>
+              <span className="text-xs text-[#3b82f6] font-medium">{formatWeekLabel(currentWeekStart)}</span>
             </div>
-
-            {/* 3 Weeks Display */}
             <div className="space-y-4">
               {getWeeks().map((week, weekIdx) => {
                 const isCurrentWeek = weekIdx === 1;
@@ -840,22 +715,11 @@ function App() {
                     </div>
                     <div className={`grid gap-2 sm:gap-3 ${isMobile ? 'grid-cols-3 sm:grid-cols-5' : 'grid-cols-5'}`}>
                       {weekData.map(day => (
-                        <div
-                          key={day.date}
-                          onClick={() => { setSelectedDay(day.date); setCurrentWeekStart(week.weekStart); setViewMode('input'); }}
-                          className={`p-2 sm:p-3 rounded-lg cursor-pointer transition-all text-xs ${
-                            selectedDay === day.date
-                              ? 'bg-gradient-to-br from-[#3b82f6] to-[#1d4ed8] text-white shadow-lg shadow-blue-500/20 ring-2 ring-blue-500 ring-offset-2 ring-offset-[#111111]'
-                              : day.content.trim()
-                              ? 'bg-[#1a2618] text-[#4ade80] border border-[#22c55e]/30'
-                              : 'bg-[#161616] text-[#666666] hover:bg-[#1c1c1c] border border-[#252525]'
-                          } ${!isCurrentWeek ? 'opacity-60' : ''}`}
-                        >
+                        <div key={day.date} onClick={() => { setSelectedDay(day.date); setCurrentWeekStart(week.weekStart); setViewMode('input'); }}
+                          className={`p-2 sm:p-3 rounded-lg cursor-pointer text-xs ${selectedDay === day.date ? 'bg-gradient-to-br from-[#3b82f6] to-[#1d4ed8] text-white ring-2 ring-blue-500 ring-offset-2 ring-offset-[#111111]' : day.content.trim() ? 'bg-[#1a2618] text-[#4ade80] border border-[#22c55e]/30' : 'bg-[#161616] text-[#666666] hover:bg-[#1c1c1c]'}`}>
                           <div className="text-xs font-medium opacity-60">{day.dayName}</div>
-                          <div className={`font-semibold mt-0.5 text-inherit ${isMobile ? 'text-xs' : 'text-sm'}`}>{formatDateDisplay(day.date)}</div>
-                          <div className="mt-1 h-6 sm:h-8 overflow-hidden opacity-70 text-[10px] sm:text-xs">
-                            {day.content ? (day.content.length > 20 ? day.content.substring(0, 20) + '...' : day.content) : '-'}
-                          </div>
+                          <div className={`font-semibold mt-0.5 ${isMobile ? 'text-xs' : 'text-sm'}`}>{formatDateDisplay(day.date)}</div>
+                          <div className="mt-1 h-6 sm:h-8 overflow-hidden opacity-70 text-[10px]">{day.content ? (day.content.length > 20 ? day.content.substring(0, 20) + '...' : day.content) : '-'}</div>
                         </div>
                       ))}
                     </div>
@@ -863,123 +727,139 @@ function App() {
                 );
               })}
             </div>
-
             <div className="mt-6 flex gap-3 justify-center">
-              <button
-                onClick={() => { setReportType('daily'); handleGenerate(); }}
-                disabled={loading}
-                className="px-6 py-3 bg-[#22c55e] text-white text-sm font-medium rounded-xl hover:bg-[#16a34a] transition disabled:opacity-50 shadow-lg shadow-green-500/20"
-              >
-                生成日报
-              </button>
-              <button
-                onClick={() => { setReportType('weekly'); handleGenerate(); }}
-                disabled={loading}
-                className="px-6 py-3 bg-[#3b82f6] text-white text-sm font-medium rounded-xl hover:bg-[#2563eb] transition disabled:opacity-50 shadow-lg shadow-blue-500/20"
-              >
-                生成周报
-              </button>
+              <button onClick={() => { setReportType('daily'); handleGenerate(); }} disabled={loading} className="px-6 py-3 bg-[#22c55e] text-white text-sm font-medium rounded-xl hover:bg-[#16a34a] disabled:opacity-50 shadow-lg shadow-green-500/20">生成日报</button>
+              <button onClick={() => { setReportType('weekly'); handleGenerate(); }} disabled={loading} className="px-6 py-3 bg-[#3b82f6] text-white text-sm font-medium rounded-xl hover:bg-[#2563eb] disabled:opacity-50 shadow-lg shadow-blue-500/20">生成周报</button>
             </div>
           </div>
         )}
 
-        {/* Input View */}
-        {viewMode === 'input' && (
+        {/* 小蒙模式 - Input */}
+        {!isYMode && viewMode === 'input' && (
           <div className="bg-[#111111] rounded-2xl p-4 sm:p-6 border border-[#1f1f1f]">
-            <div className="flex flex-wrap items-center gap-2 sm:gap-4 mb-4 sm:mb-6">
-              <select value={reportType} onChange={e => setReportType(e.target.value as ReportType)} className="px-3 py-2 text-xs sm:text-sm bg-[#161616] border border-[#2a2a2a] rounded-xl text-[#e0e0e0] focus:outline-none focus:ring-1 focus:ring-[#3b82f6]">
+            <div className="flex flex-wrap gap-2 sm:gap-4 mb-4">
+              <select value={reportType} onChange={e => setReportType(e.target.value as ReportType)} className="px-3 py-2 text-xs sm:text-sm bg-[#161616] border border-[#2a2a2a] rounded-xl text-[#e0e0e0]">
                 <option value="daily">日报</option>
                 <option value="weekly">周报</option>
-                <option value="monthly">月报</option>
               </select>
-              <select value={reportStyle} onChange={e => setReportStyle(e.target.value as ReportStyle)} className="px-3 py-2 text-xs sm:text-sm bg-[#161616] border border-[#2a2a2a] rounded-xl text-[#e0e0e0] focus:outline-none focus:ring-1 focus:ring-[#3b82f6]">
+              <select value={reportStyle} onChange={e => setReportStyle(e.target.value as ReportStyle)} className="px-3 py-2 text-xs sm:text-sm bg-[#161616] border border-[#2a2a2a] rounded-xl text-[#e0e0e0]">
                 <option value="standard">标准格式</option>
                 <option value="simple">简洁格式</option>
               </select>
-              {reportType === 'daily' && (
-                <input
-                  type="date"
-                  value={selectedDay}
-                  onChange={e => setSelectedDay(e.target.value)}
-                  className="px-3 py-2 text-xs sm:text-sm bg-[#161616] border border-[#2a2a2a] rounded-xl text-[#e0e0e0] focus:outline-none focus:ring-1 focus:ring-[#3b82f6]"
-                />
-              )}
             </div>
-
             {reportType === 'daily' ? (
               <>
-                <div className="mb-2 text-xs text-[#888888]">
-                  当前选择：{selectedDay ? formatDateDisplay(selectedDay) : '请在日历中选择日期'}
-                </div>
-                <textarea
-                  placeholder="输入今日工作内容..."
-                  value={(() => {
-                    const day = Object.values(allData).flat().find(d => d.date === selectedDay);
-                    return day?.content || '';
-                  })()}
-                  onChange={e => updateDayContent(selectedDay, e.target.value)}
-                  className="w-full h-48 sm:h-64 px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm bg-[#161616] border border-[#2a2a2a] rounded-xl text-[#e0e0e0] resize-none focus:outline-none focus:ring-1 focus:ring-[#3b82f6]"
-                />
+                <div className="mb-2 text-xs text-[#888888]">当前选择：{selectedDay ? formatDateDisplay(selectedDay) : '请在日历中选择日期'}</div>
+                <textarea placeholder="输入今日工作内容..." value={Object.values(allData).flat().find(d => d.date === selectedDay)?.content || ''} onChange={e => updateDayContent(selectedDay, e.target.value)} className="w-full h-48 sm:h-64 px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm bg-[#161616] border border-[#2a2a2a] rounded-xl text-[#e0e0e0] resize-none" />
               </>
             ) : (
-              <>
-                <div className="mb-2 text-xs text-[#888888]">
-                  本周已填写 {Object.values(allData).flat().filter(d => d.content.trim()).length} 天
-                </div>
-                <textarea
-                  placeholder="输入本周工作内容汇总..."
-                  value={Object.values(allData).flat().filter(d => d.content.trim()).map(d => `[${d.dayName}] ${d.content}`).join('\n\n')}
-                  onChange={() => {}}
-                  readOnly
-                  className="w-full h-48 sm:h-64 px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm bg-[#0d0d0d] border border-[#2a2a2a] rounded-xl text-[#888888] resize-none"
-                />
-              </>
+              <div className="mb-2 text-xs text-[#888888]">本周已填写 {Object.values(allData).flat().filter(d => d.content.trim()).length} 天</div>
             )}
-
-            <button onClick={handleGenerate} disabled={loading} className="w-full mt-4 py-3 bg-gradient-to-r from-[#3b82f6] to-[#1d4ed8] text-white text-sm font-medium rounded-xl hover:opacity-90 transition disabled:opacity-50 shadow-lg shadow-blue-500/20">
-              {loading ? '生成中...' : '生成报告'}
-            </button>
+            <button onClick={handleGenerate} disabled={loading} className="w-full mt-4 py-3 bg-gradient-to-r from-[#3b82f6] to-[#1d4ed8] text-white text-sm font-medium rounded-xl hover:opacity-90 disabled:opacity-50"> {loading ? '生成中...' : '生成报告'} </button>
           </div>
         )}
 
-        {/* Templates View */}
-        {viewMode === 'templates' && (
-          <div className="space-y-4 sm:space-y-6">
+        {/* 小蒙模式 - Templates */}
+        {!isYMode && viewMode === 'templates' && (
+          <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-base sm:text-lg font-semibold text-white">报告模板</h2>
-                <p className="text-xs text-[#666666] mt-1">点击即可复制模板到剪贴板</p>
-              </div>
-              <select
-                value={reportType}
-                onChange={e => setReportType(e.target.value as ReportType)}
-                className="px-3 py-2 text-xs sm:text-sm bg-[#161616] border border-[#2a2a2a] rounded-xl text-[#e0e0e0] focus:outline-none focus:ring-1 focus:ring-[#3b82f6]"
-              >
+              <h2 className="text-base sm:text-lg font-semibold text-white">报告模板</h2>
+              <select value={reportType} onChange={e => setReportType(e.target.value as ReportType)} className="px-3 py-2 text-xs sm:text-sm bg-[#161616] border border-[#2a2a2a] rounded-xl text-[#e0e0e0]">
                 <option value="daily">日报</option>
                 <option value="weekly">周报</option>
                 <option value="monthly">月报</option>
               </select>
             </div>
-
             <div className={`grid gap-3 ${isMobile ? 'grid-cols-1' : 'md:grid-cols-2'}`}>
               {TEMPLATES.filter(t => t.type === reportType).map(template => (
-                <div key={template.id} className="bg-[#111111] rounded-xl p-4 border border-[#1f1f1f] hover:border-[#2a2a2a] transition">
+                <div key={template.id} className="bg-[#111111] rounded-xl p-4 border border-[#1f1f1f]">
                   <div className="flex items-start justify-between mb-2">
                     <div>
                       <h3 className="font-medium text-white text-sm">{template.name}</h3>
                       <p className="text-xs text-[#666666] mt-0.5">{template.description}</p>
                     </div>
-                    <button
-                      onClick={() => copyTemplate(template)}
-                      className="px-2 py-1 text-xs font-medium bg-[#1c1c1c] text-[#b0b0b0] rounded-lg hover:bg-[#252525] hover:text-white transition border border-[#2a2a2a]"
-                    >
-                      复制
-                    </button>
+                    <button onClick={() => copyTemplate(template)} className="px-2 py-1 text-xs bg-[#1c1c1c] text-[#b0b0b0] rounded-lg border border-[#2a2a2a] hover:text-white">复制</button>
                   </div>
-                  <pre className="text-xs text-[#888888] whitespace-pre-wrap bg-[#0d0d0d] p-2 sm:p-3 rounded-lg max-h-28 sm:max-h-40 overflow-auto border border-[#1a1a1a]">{template.content}</pre>
+                  <pre className="text-xs text-[#888888] whitespace-pre-wrap bg-[#0d0d0d] p-2 sm:p-3 rounded-lg max-h-28 overflow-auto border border-[#1a1a1a]">{template.content}</pre>
                 </div>
               ))}
             </div>
+          </div>
+        )}
+
+        {/* 圆圆模式 - 工作记录 */}
+        {isYMode && viewMode === 'sjc' && (
+          <div className="space-y-4">
+            <div className="bg-[#111111] rounded-2xl p-4 sm:p-6 border border-[#1f1f1f]">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-semibold text-white">本周工作记录</h2>
+                <span className="text-xs text-[#888888]">{getWeekRange()}</span>
+              </div>
+              <p className="text-xs text-[#666666] mb-4">三江供应链公司重点工作推进情况表格式</p>
+              <button onClick={addSJCEntry} className="px-4 py-2 bg-[#22c55e] text-white text-sm rounded-xl hover:bg-[#16a34a] transition">+ 添加工作记录</button>
+            </div>
+
+            <div className="space-y-3">
+              {sjcEntries.length === 0 && (
+                <div className="bg-[#111111] rounded-xl p-8 border border-[#1f1f1f] text-center">
+                  <p className="text-[#666666]">暂无工作记录，点击上方"添加工作记录"开始</p>
+                </div>
+              )}
+              {sjcEntries.map((entry, index) => (
+                <div key={index} className="bg-[#111111] rounded-xl p-4 border border-[#1f1f1f]">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-sm font-medium text-[#3b82f6]">记录 {index + 1}</span>
+                    <button onClick={() => deleteSJCEntry(index)} className="px-2 py-1 text-xs bg-red-500/20 text-red-400 rounded hover:bg-red-500/30">删除</button>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-xs text-[#888888] block mb-1">工作分类</label>
+                      <select value={entry.category} onChange={e => updateSJCEntry(index, 'category', e.target.value)} className="w-full px-2 py-1.5 text-xs bg-[#161616] border border-[#2a2a2a] rounded-lg text-[#e0e0e0]">
+                        {SJC_CATEGORIES.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-xs text-[#888888] block mb-1">责任人</label>
+                      <input value={entry.owner} onChange={e => updateSJCEntry(index, 'owner', e.target.value)} placeholder="姓名" className="w-full px-2 py-1.5 text-xs bg-[#161616] border border-[#2a2a2a] rounded-lg text-[#e0e0e0]" />
+                    </div>
+                    <div className="col-span-2">
+                      <label className="text-xs text-[#888888] block mb-1">项目/工作事项</label>
+                      <input value={entry.project} onChange={e => updateSJCEntry(index, 'project', e.target.value)} placeholder="简要描述工作项目" className="w-full px-2 py-1.5 text-xs bg-[#161616] border border-[#2a2a2a] rounded-lg text-[#e0e0e0]" />
+                    </div>
+                    <div className="col-span-2">
+                      <label className="text-xs text-[#888888] block mb-1">本周重点工作内容</label>
+                      <textarea value={entry.content} onChange={e => updateSJCEntry(index, 'content', e.target.value)} placeholder="详细描述本周完成的工作..." className="w-full h-20 px-2 py-1.5 text-xs bg-[#161616] border border-[#2a2a2a] rounded-lg text-[#e0e0e0] resize-none" />
+                    </div>
+                    <div>
+                      <label className="text-xs text-[#888888] block mb-1">计划完成时间</label>
+                      <input type="date" value={entry.planDate} onChange={e => updateSJCEntry(index, 'planDate', e.target.value)} className="w-full px-2 py-1.5 text-xs bg-[#161616] border border-[#2a2a2a] rounded-lg text-[#e0e0e0]" />
+                    </div>
+                    <div>
+                      <label className="text-xs text-[#888888] block mb-1">状态</label>
+                      <select value={entry.status} onChange={e => updateSJCEntry(index, 'status', e.target.value)} className="w-full px-2 py-1.5 text-xs bg-[#161616] border border-[#2a2a2a] rounded-lg text-[#e0e0e0]">
+                        <option value="">请选择</option>
+                        <option value="done">已完成</option>
+                        <option value="undone">未完成</option>
+                      </select>
+                    </div>
+                    <div className="col-span-2">
+                      <label className="text-xs text-[#888888] block mb-1">截至本周累计完成情况</label>
+                      <textarea value={entry.completed} onChange={e => updateSJCEntry(index, 'completed', e.target.value)} placeholder="描述完成进度..." className="w-full h-16 px-2 py-1.5 text-xs bg-[#161616] border border-[#2a2a2a] rounded-lg text-[#e0e0e0] resize-none" />
+                    </div>
+                    <div className="col-span-2">
+                      <label className="text-xs text-[#888888] block mb-1">未完成情况说明</label>
+                      <textarea value={entry.unfinished} onChange={e => updateSJCEntry(index, 'unfinished', e.target.value)} placeholder="如未完成，说明原因..." className="w-full h-16 px-2 py-1.5 text-xs bg-[#161616] border border-[#2a2a2a] rounded-lg text-[#e0e0e0] resize-none" />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {sjcEntries.length > 0 && (
+              <button onClick={generateSJCReport} disabled={loading} className="w-full py-3 bg-gradient-to-r from-[#22c55e] to-[#16a34a] text-white text-sm font-medium rounded-xl hover:opacity-90 disabled:opacity-50 shadow-lg">
+                {loading ? '生成中...' : '生成周报'}
+              </button>
+            )}
           </div>
         )}
 
@@ -987,31 +867,20 @@ function App() {
         {viewMode === 'result' && (
           <div className="bg-[#111111] rounded-2xl p-4 sm:p-6 border border-[#1f1f1f]">
             <div className="flex flex-wrap justify-between items-center mb-4 gap-2">
-              <h2 className="text-base sm:text-lg font-semibold text-white">
-                {reportType === 'daily' ? '日报' : reportType === 'weekly' ? '周报' : '月报'}结果
-              </h2>
+              <h2 className="text-base sm:text-lg font-semibold text-white">生成结果</h2>
               <div className="flex gap-2">
-                <button onClick={handleCopy} className="px-3 py-1.5 text-xs sm:text-sm bg-[#1c1c1c] text-[#b0b0b0] rounded-lg hover:bg-[#252525] hover:text-white transition font-medium border border-[#2a2a2a]">
-                  复制
-                </button>
-                <button onClick={handleExport} className="px-3 py-1.5 text-xs sm:text-sm bg-[#1c1c1c] text-[#b0b0b0] rounded-lg hover:bg-[#252525] hover:text-white transition font-medium border border-[#2a2a2a]">
-                  导出
-                </button>
-                <button onClick={() => setViewMode('calendar')} className="px-3 py-1.5 text-xs sm:text-sm bg-gradient-to-r from-[#3b82f6] to-[#1d4ed8] text-white rounded-lg hover:opacity-90 transition font-medium shadow-lg shadow-blue-500/20">
-                  返回
-                </button>
+                <button onClick={handleCopy} className="px-3 py-1.5 text-xs bg-[#1c1c1c] text-[#b0b0b0] rounded-lg border border-[#2a2a2a] hover:text-white">复制</button>
+                <button onClick={handleExport} className="px-3 py-1.5 text-xs bg-[#1c1c1c] text-[#b0b0b0] rounded-lg border border-[#2a2a2a] hover:text-white">导出</button>
+                <button onClick={() => setViewMode(isYMode ? 'sjc' : 'calendar')} className="px-3 py-1.5 text-xs bg-gradient-to-r from-[#3b82f6] to-[#1d4ed8] text-white rounded-lg shadow-lg">返回</button>
               </div>
             </div>
             <pre className="whitespace-pre-wrap text-xs sm:text-sm text-[#c0c0c0] bg-[#0d0d0d] p-3 sm:p-5 rounded-xl overflow-auto max-h-[400px] sm:max-h-[500px] leading-relaxed border border-[#1a1a1a]">{generatedReport}</pre>
           </div>
         )}
 
-        {/* Footer */}
-        {viewMode === 'calendar' && (
-          <div className="mt-4 sm:mt-6 text-center text-xs text-[#444444]">
-            数据保存在本地 · 上传 GitHub 可多设备同步
-          </div>
-        )}
+        <div className="mt-4 sm:mt-6 text-center text-xs text-[#444444]">
+          {isYMode ? '三江供应链格式 · 国企风格' : '数据保存在本地 · 上传 GitHub 可多设备同步'}
+        </div>
       </div>
     </div>
   );
