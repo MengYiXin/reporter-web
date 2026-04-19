@@ -20,14 +20,46 @@ export function DayEditorModal({ isOpen, onClose, onGenerate }: DayEditorModalPr
   const optimizedContent = dayEntry?.optimizedContent || '';
 
   const [inputText, setInputText] = useState(content);
-  const inputRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   // 每次打开弹窗时同步最新内容
   useEffect(() => {
     if (isOpen) {
-      setInputText(dayEntry?.content || '');
+      const latestContent = dayEntry?.content || '';
+      setInputText(latestContent);
+      // 直接设置DOM值
+      if (textareaRef.current) {
+        textareaRef.current.value = latestContent;
+      }
     }
   }, [isOpen, selectedDay, dayEntry?.content]);
+
+  // 使用原生事件处理输入
+  useEffect(() => {
+    const textarea = textareaRef.current;
+    if (!textarea || !isOpen) return;
+
+    // 监听原生输入事件
+    const handleNativeInput = () => {
+      const newValue = textarea.value;
+      setInputText(newValue);
+      updateDayContent(selectedDay, newValue);
+    };
+
+    // 添加多个事件监听以确保捕获所有输入
+    textarea.addEventListener('input', handleNativeInput);
+    textarea.addEventListener('change', handleNativeInput);
+    textarea.addEventListener('keyup', handleNativeInput);
+    textarea.addEventListener('blur', handleNativeInput);
+
+    return () => {
+      textarea.removeEventListener('input', handleNativeInput);
+      textarea.removeEventListener('change', handleNativeInput);
+      textarea.removeEventListener('keyup', handleNativeInput);
+      textarea.removeEventListener('blur', handleNativeInput);
+    };
+  }, [isOpen, selectedDay, updateDayContent]);
 
   const handleCopy = (text: string) => {
     navigator.clipboard.writeText(text);
@@ -39,6 +71,9 @@ export function DayEditorModal({ isOpen, onClose, onGenerate }: DayEditorModalPr
       const text = await navigator.clipboard.readText();
       const newText = inputText + text;
       setInputText(newText);
+      if (textareaRef.current) {
+        textareaRef.current.value = newText;
+      }
       updateDayContent(selectedDay, newText);
       alert('粘贴成功');
     } catch (err) {
@@ -46,23 +81,18 @@ export function DayEditorModal({ isOpen, onClose, onGenerate }: DayEditorModalPr
     }
   };
 
-  // 处理输入变化
-  const handleInput = () => {
-    const text = inputRef.current?.innerText || '';
-    setInputText(text);
-    updateDayContent(selectedDay, text);
-  };
-
-  // 失去焦点时保存
-  const handleBlur = () => {
-    const text = inputRef.current?.innerText || '';
-    setInputText(text);
-    updateDayContent(selectedDay, text);
+  const handleGenerate = () => {
+    // 保存当前输入
+    if (textareaRef.current) {
+      updateDayContent(selectedDay, textareaRef.current.value);
+    }
+    onClose();
+    onGenerate();
   };
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={formatDateDisplay(selectedDay)}>
-      <div className="space-y-4">
+      <div className="space-y-4" ref={containerRef}>
         {/* 原始内容 */}
         <div>
           <div className="flex items-center justify-between mb-2">
@@ -75,27 +105,26 @@ export function DayEditorModal({ isOpen, onClose, onGenerate }: DayEditorModalPr
                 📋 粘贴
               </button>
               <button
-                onClick={() => handleCopy(inputText)}
+                onClick={() => handleCopy(textareaRef.current?.value || '')}
                 className="text-xs text-[#3b82f6] hover:text-[#2563eb]"
               >
                 复制
               </button>
             </div>
           </div>
-          {/* 使用 contentEditable div 替代 textarea */}
-          <div
-            ref={inputRef}
-            contentEditable
-            onInput={handleInput}
-            onBlur={handleBlur}
-            suppressContentEditableWarning
-            className="w-full min-h-[120px] h-auto bg-[#161616] border border-[#2a2a2a] rounded-xl text-[#e0e0e0] p-3 text-sm overflow-auto outline-none focus:border-[#3b82f6]"
-            style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
-          >
-            {inputText}
-          </div>
+          <textarea
+            ref={textareaRef}
+            defaultValue={inputText}
+            placeholder="输入今日工作内容，或点击粘贴按钮"
+            className="w-full h-40 bg-[#161616] border border-[#2a2a2a] rounded-xl text-[#e0e0e0] p-3 resize-none text-sm"
+            style={{ WebkitAppearance: 'none', appearance: 'none' }}
+            autoComplete="off"
+            autoCorrect="off"
+            autoCapitalize="off"
+            spellCheck={false}
+          />
           <div className="mt-1 text-xs text-[#666]">
-            点击输入框直接打字，或点击上方粘贴按钮
+            直接输入内容，自动保存
           </div>
         </div>
 
@@ -126,10 +155,7 @@ export function DayEditorModal({ isOpen, onClose, onGenerate }: DayEditorModalPr
             关闭
           </button>
           <button
-            onClick={() => {
-              onClose();
-              onGenerate();
-            }}
+            onClick={handleGenerate}
             disabled={loading || !inputText.trim()}
             className="px-4 py-2 text-sm bg-[#22c55e] text-white rounded-lg hover:bg-[#16a34a] disabled:opacity-50"
           >
