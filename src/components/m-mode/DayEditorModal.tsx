@@ -23,6 +23,35 @@ export function DayEditorModal({ isOpen, onClose, onGenerate }: DayEditorModalPr
     alert('已复制到剪贴板');
   };
 
+  const handlePaste = async () => {
+    try {
+      const text = await navigator.clipboard.readText();
+      updateDayContent(selectedDay, content + text);
+      alert('粘贴成功');
+    } catch (err) {
+      // 某些浏览器不支持readText，降级处理
+      const textArea = document.createElement('textarea');
+      textArea.value = '';
+      textArea.style.position = 'fixed';
+      textArea.style.left = '-9999px';
+      document.body.appendChild(textArea);
+      textArea.focus();
+      try {
+        document.execCommand('paste');
+        const pasted = textArea.value;
+        if (pasted) {
+          updateDayContent(selectedDay, content + pasted);
+          alert('粘贴成功');
+        } else {
+          alert('请长按输入框使用系统粘贴');
+        }
+      } catch {
+        alert('请长按输入框使用系统粘贴');
+      }
+      document.body.removeChild(textArea);
+    }
+  };
+
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={formatDateDisplay(selectedDay)}>
       <div className="space-y-4">
@@ -30,18 +59,26 @@ export function DayEditorModal({ isOpen, onClose, onGenerate }: DayEditorModalPr
         <div>
           <div className="flex items-center justify-between mb-2">
             <label className="text-sm text-[#888]">原始内容</label>
-            <button
-              onClick={() => handleCopy(content)}
-              className="text-xs text-[#3b82f6] hover:text-[#2563eb]"
-            >
-              复制
-            </button>
+            <div className="flex gap-2">
+              <button
+                onClick={handlePaste}
+                className="text-xs px-2 py-1 bg-[#3b82f6]/20 text-[#3b82f6] rounded hover:bg-[#3b82f6]/30"
+              >
+                📋 粘贴
+              </button>
+              <button
+                onClick={() => handleCopy(content)}
+                className="text-xs text-[#3b82f6] hover:text-[#2563eb]"
+              >
+                复制
+              </button>
+            </div>
           </div>
           <textarea
             value={content}
             onChange={(e) => updateDayContent(selectedDay, e.target.value)}
-            placeholder="输入今日工作内容..."
-            className="w-full h-32 bg-[#161616] border border-[#2a2a2a] rounded-xl text-[#e0e0e0] p-3 resize-none text-sm"
+            placeholder="输入今日工作内容，或点击粘贴按钮从剪贴板导入"
+            className="w-full h-40 bg-[#161616] border border-[#2a2a2a] rounded-xl text-[#e0e0e0] p-3 resize-none text-sm"
           />
         </div>
 
