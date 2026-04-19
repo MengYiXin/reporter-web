@@ -85,7 +85,6 @@ export function DayEditorModal({ isOpen, onClose, onGenerate }: DayEditorModalPr
   };
 
   const handleGenerate = () => {
-    console.log('[DEBUG] handleGenerate called, loading:', loading);
     // 保存当前输入
     if (textareaRef.current) {
       updateDayContent(selectedDay, textareaRef.current.value);
