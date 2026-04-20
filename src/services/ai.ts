@@ -247,9 +247,14 @@ export function buildCellExpandPrompt(
 板块名称：${categoryName}
 已有内容：${context.thisWeek || '无'}
 
-请扩写成一段流畅的工作描述，包含具体做了什么、进展如何、取得了什么成果。
+要求：
+- 输出格式为：序号.项目名称：工作内容1；工作内容2；工作内容3。
+- 每条工作单独一行，不要连贯描述
+- 分号用于分隔同一项目的多项工作
+- 重要项目用⭐标记
+- 不要写"本周...工作进展顺利"、"综上所述"等连贯段落
 
-只需输出一段文字，不要加标题。`;
+只需输出格式化内容，不要加标题。`;
 
     case 'cumulative':
       return `请根据以下信息，生成累计完成情况描述。
@@ -259,9 +264,12 @@ export function buildCellExpandPrompt(
 上周累计：${context.lastCumulative || '无'}
 工作状态：${context.status || '进行中'}
 
-请描述截至目前的工作完成进度（包括历史累计和本周进展）。
+要求：
+- 输出格式为：序号.项目名称：累计内容1；累计内容2。
+- 每条单独一行，分号分隔多项
+- 不要写连贯段落描述
 
-只需输出一段文字。`;
+只需输出格式化内容。`;
 
     case 'nextWeek':
       return `请根据以下信息，生成下周工作计划。
@@ -271,20 +279,26 @@ export function buildCellExpandPrompt(
 累计完成：${context.cumulative || '无'}
 存在问题：${context.issues || '无'}
 
-请基于本周进展和遗留问题，列出下周的工作计划。
+要求：
+- 输出格式为：序号.项目名称：计划内容1；计划内容2。
+- 每条单独一行，分号分隔多项
+- 不要写连贯段落
 
-只需输出一段文字。`;
+只需输出格式化内容。`;
 
     case 'issues':
-      return `请根据本周工作内容，分析可能存在的问题和困难。
+      return `请根据本周工作内容，分析可能存在的问题。
 
 板块：${categoryName}
 本周完成：${context.thisWeek}
 累计完成：${context.cumulative || '无'}
 
-请列出可能存在的问题（资金、审批、外部依赖等）。
+要求：
+- 输出格式为：序号.问题描述。
+- 每条单独一行
+- 不要写连贯段落
 
-只需输出一段文字。`;
+只需输出格式化内容。`;
 
     case 'coordination':
       return `请根据本周工作内容，列出需协调解决的事项。
@@ -293,9 +307,12 @@ export function buildCellExpandPrompt(
 本周完成：${context.thisWeek}
 存在问题：${context.issues || '无'}
 
-请列出需领导或跨部门协调解决的事项。
+要求：
+- 输出格式为：序号.协调事项。
+- 每条单独一行
+- 不要写连贯段落
 
-只需输出一段文字。`;
+只需输出格式化内容。`;
 
     default:
       return '';

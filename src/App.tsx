@@ -5,7 +5,7 @@ import { useMobile } from './hooks/useMobile';
 import { Header, LoadingOverlay } from './components/common';
 import { UserSelectScreen, LoginScreen } from './components/user-select';
 import { MModeCalendar, MModeArchive, MModeResult } from './components/m-mode';
-import { YModeWorkRecord } from './components/y-mode';
+import { YModeWorkRecord, YModeResult } from './components/y-mode';
 import { getWeeks, formatWeekLabel, getLastWeekStart } from './utils/date';
 import { callAI, buildTechReportPrompt, buildSJCReportPrompt, buildCellExpandPrompt } from './services/ai';
 import { GIST_FILENAME } from './constants';
@@ -17,7 +17,6 @@ function App() {
   const userMode = useAppStore((state) => state.userMode);
   const loading = useAppStore((state) => state.loading);
   const setLoading = useAppStore((state) => state.setLoading);
-  const generatedReport = useAppStore((state) => state.generatedReport);
   const setGeneratedReport = useAppStore((state) => state.setGeneratedReport);
   const apiKey = useAppStore((state) => state.apiKey);
   const aiModel = useAppStore((state) => state.aiModel);
@@ -434,46 +433,11 @@ function App() {
         )}
 
         {/* 结果视图 */}
-        {viewMode === 'result' && (
-          <div className="bg-[#111111] rounded-2xl p-4 sm:p-6 border border-[#1f1f1f]">
-            <div className="flex flex-wrap justify-between items-center mb-4 gap-2">
-              <h2 className="text-base sm:text-lg font-semibold text-white">生成结果</h2>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => {
-                    navigator.clipboard.writeText(generatedReport);
-                    alert('已复制');
-                  }}
-                  className="px-3 py-1.5 text-xs bg-[#1c1c1c] text-[#b0b0b0] rounded-lg border border-[#2a2a2a] hover:text-white"
-                >
-                  复制
-                </button>
-                <button
-                  onClick={() => {
-                    const blob = new Blob([generatedReport], { type: 'text/markdown' });
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = `周报_${new Date().toISOString().split('T')[0]}.md`;
-                    a.click();
-                    URL.revokeObjectURL(url);
-                  }}
-                  className="px-3 py-1.5 text-xs bg-[#1c1c1c] text-[#b0b0b0] rounded-lg border border-[#2a2a2a] hover:text-white"
-                >
-                  导出
-                </button>
-                <button
-                  onClick={() => setViewMode(isYMode ? 'sjc' : 'calendar')}
-                  className="px-3 py-1.5 text-xs bg-gradient-to-r from-[#3b82f6] to-[#1d4ed8] text-white rounded-lg shadow-lg"
-                >
-                  返回
-                </button>
-              </div>
-            </div>
-            <pre className="whitespace-pre-wrap text-xs sm:text-sm text-[#c0c0c0] bg-[#0d0d0d] p-3 sm:p-5 rounded-xl overflow-auto max-h-[400px] sm:max-h-[500px] leading-relaxed border border-[#1a1a1a]">
-              {generatedReport}
-            </pre>
-          </div>
+        {viewMode === 'result' && isYMode && (
+          <YModeResult onBack={() => setViewMode('sjc')} />
+        )}
+        {viewMode === 'result' && !isYMode && (
+          <MModeResult />
         )}
 
         <div className="mt-4 sm:mt-6 text-center text-xs text-[#444444]">
