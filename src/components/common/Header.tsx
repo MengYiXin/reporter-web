@@ -6,6 +6,7 @@ import { useMobile } from '../../hooks/useMobile';
 export function Header() {
   const isMobile = useMobile();
   const userMode = useAppStore((state) => state.userMode);
+  const loginUser = useAppStore((state) => state.loginUser);
   const setUserMode = useAppStore((state) => state.setUserMode);
   const apiKey = useAppStore((state) => state.apiKey);
   const setApiKey = useAppStore((state) => state.setApiKey);
@@ -13,6 +14,7 @@ export function Header() {
   const setAiModel = useAppStore((state) => state.setAiModel);
   const ghToken = useAppStore((state) => state.ghToken);
   const setGhToken = useAppStore((state) => state.setGhToken);
+  const logout = useAppStore((state) => state.logout);
 
   const isYMode = userMode === 'y';
 
@@ -49,6 +51,16 @@ export function Header() {
         </div>
       </div>
       <div className="flex flex-wrap items-center gap-2">
+        {/* 用户信息 */}
+        <span className="px-2 py-1.5 text-xs bg-[#1c1c1c] border border-[#2a2a2a] rounded-lg text-[#e0e0e0]">
+          {loginUser}
+        </span>
+        <button
+          onClick={logout}
+          className="px-2 py-1.5 text-xs bg-[#1c1c1c] border border-[#2a2a2a] rounded-lg text-[#e0e0e0] hover:text-red-400"
+        >
+          退出
+        </button>
         <select
           value={aiModel}
           onChange={(e) => setAiModel(e.target.value as AIModel)}

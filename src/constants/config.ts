@@ -22,6 +22,10 @@ export const STORAGE_KEYS = {
   WEEK_ENTRIES: 'weekEntries',
   SJC_ARCHIVE: 'sjc_archive',
   REPORT_ARCHIVE: 'report_archive',
+  REMEMBERED_ACCOUNT: 'remembered_account',
+  REMEMBERED_PASSWORD: 'remembered_password',
+  REMEMBER_ACCOUNT: 'remember_account',
+  REMEMBER_PASSWORD: 'remember_password',
 } as const;
 
 // Gist 文件名

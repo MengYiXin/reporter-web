@@ -3,7 +3,7 @@ import { useAppStore } from './store/useAppStore';
 import { useSjcAutoSave, useWeekEntriesAutoSave } from './hooks/useAutoSave';
 import { useMobile } from './hooks/useMobile';
 import { Header, LoadingOverlay } from './components/common';
-import { UserSelectScreen } from './components/user-select';
+import { UserSelectScreen, LoginScreen } from './components/user-select';
 import { MModeCalendar, MModeArchive, MModeResult } from './components/m-mode';
 import { YModeWorkRecord } from './components/y-mode';
 import { getWeeks, formatWeekLabel, getLastWeekStart } from './utils/date';
@@ -13,6 +13,7 @@ import { STORAGE_KEYS } from './constants/config';
 import type { ReportType } from './types';
 
 function App() {
+  const isLoggedIn = useAppStore((state) => state.isLoggedIn);
   const userMode = useAppStore((state) => state.userMode);
   const loading = useAppStore((state) => state.loading);
   const setLoading = useAppStore((state) => state.setLoading);
@@ -328,7 +329,12 @@ function App() {
 
   // ============ 渲染 ============
 
-  // 用户选择页面
+  // 登录页面
+  if (!isLoggedIn) {
+    return <LoginScreen />;
+  }
+
+  // 用户选择页面（未选择模式时）
   if (!userMode) {
     return <UserSelectScreen />;
   }

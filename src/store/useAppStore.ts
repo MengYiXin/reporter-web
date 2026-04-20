@@ -54,6 +54,12 @@ interface AppState {
   userMode: UserMode;
   setUserMode: (mode: UserMode) => void;
 
+  // 登录状态
+  isLoggedIn: boolean;
+  loginUser: string;
+  setLoggedIn: (loggedIn: boolean, user: string) => void;
+  logout: () => void;
+
   // AI 配置
   apiKey: string;
   aiModel: AIModel;
@@ -133,6 +139,8 @@ export const useAppStore = create<AppState>()(
     (set, get) => ({
       // 初始状态
       userMode: null,
+      isLoggedIn: false,
+      loginUser: '',
       apiKey: '',
       aiModel: DEFAULT_AI_MODEL,
       ghToken: '',
@@ -175,6 +183,8 @@ export const useAppStore = create<AppState>()(
       setSjcView: (view) => set({ sjcView: view }),
       setExpandedCat: (index) => set({ expandedCat: index }),
       setCurrentDepartment: (dept) => set({ currentDepartment: dept }),
+      setLoggedIn: (loggedIn, user) => set({ isLoggedIn: loggedIn, loginUser: user }),
+      logout: () => set({ isLoggedIn: false, loginUser: '', userMode: null }),
 
       // M 模式 Actions
       updateDayContent: (date, content) => {
@@ -390,6 +400,8 @@ export const useAppStore = create<AppState>()(
       name: 'app-storage',
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
+        isLoggedIn: state.isLoggedIn,
+        loginUser: state.loginUser,
         apiKey: state.apiKey,
         aiModel: state.aiModel,
         ghToken: state.ghToken,
