@@ -1,17 +1,20 @@
+import { useState } from 'react';
 import { useAppStore } from '../../store/useAppStore';
 
 export function UserSelectScreen() {
+  const [selectedMode, setSelectedMode] = useState<'m' | 'y' | null>(null);
   const setUserMode = useAppStore((state) => state.setUserMode);
   const initializeForUserMode = useAppStore((state) => state.initializeForUserMode);
 
   const handleSelectMode = (mode: 'm' | 'y') => {
+    setSelectedMode(mode);
     setUserMode(mode);
     initializeForUserMode();
   };
 
   return (
     <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
-      <div className="bg-[#111111] rounded-2xl p-8 border border-[#1f1f1f] max-w-md w-full mx-4">
+      <div className="bg-[#111111] rounded-2xl p-8 border border-[#1f1f1f] max-w-lg w-full mx-4">
         {/* Logo */}
         <div className="flex justify-center mb-6">
           <div className="relative">
@@ -34,23 +37,49 @@ export function UserSelectScreen() {
         <h1 className="text-2xl font-semibold text-white text-center mb-2">周报助手</h1>
         <p className="text-[#888888] text-center mb-8">AI 智能报告生成器</p>
         <p className="text-[#666666] text-center mb-6 text-sm">请选择您的身份</p>
-        <div className="space-y-4">
+
+        {/* M/Y 选择按钮 - 更醒目 */}
+        <div className="grid grid-cols-2 gap-4 mb-6">
           <button
             onClick={() => handleSelectMode('m')}
-            className="w-full py-4 px-6 bg-gradient-to-r from-[#3b82f6] to-[#1d4ed8] text-white rounded-xl font-medium text-lg hover:opacity-90 transition"
+            className={`relative py-6 px-6 rounded-2xl font-bold text-2xl transition-all duration-200 transform hover:scale-105 ${
+              selectedMode === 'm'
+                ? 'bg-gradient-to-br from-[#3b82f6] to-[#1d4ed8] text-white shadow-lg shadow-blue-500/30 ring-2 ring-blue-400'
+                : 'bg-gradient-to-br from-[#1e3a5f] to-[#0f1f35] text-[#3b82f6] border-2 border-[#3b82f6]/30 hover:border-[#3b82f6] hover:shadow-lg hover:shadow-blue-500/20'
+            }`}
           >
-            M
-            <span className="block text-sm opacity-70 font-normal mt-1">科技公司</span>
+            <span className="block text-3xl mb-1">M</span>
+            <span className="text-xs font-normal opacity-70">科技公司</span>
+            {selectedMode === 'm' && (
+              <div className="absolute -top-2 -right-2 w-6 h-6 bg-green-500 rounded-full flex items-center justify-center">
+                <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+            )}
           </button>
+
           <button
             onClick={() => handleSelectMode('y')}
-            className="w-full py-4 px-6 bg-gradient-to-r from-[#22c55e] to-[#16a34a] text-white rounded-xl font-medium text-lg hover:opacity-90 transition"
+            className={`relative py-6 px-6 rounded-2xl font-bold text-2xl transition-all duration-200 transform hover:scale-105 ${
+              selectedMode === 'y'
+                ? 'bg-gradient-to-br from-[#22c55e] to-[#16a34a] text-white shadow-lg shadow-green-500/30 ring-2 ring-green-400'
+                : 'bg-gradient-to-br from-[#1a3d1a] to-[#0f2a0f] text-[#22c55e] border-2 border-[#22c55e]/30 hover:border-[#22c55e] hover:shadow-lg hover:shadow-green-500/20'
+            }`}
           >
-            Y
-            <span className="block text-sm opacity-70 font-normal mt-1">供应链</span>
+            <span className="block text-3xl mb-1">Y</span>
+            <span className="text-xs font-normal opacity-70">供应链</span>
+            {selectedMode === 'y' && (
+              <div className="absolute -top-2 -right-2 w-6 h-6 bg-green-500 rounded-full flex items-center justify-center">
+                <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+            )}
           </button>
         </div>
-        <p className="text-xs text-[#444444] text-center mt-6">数据保存在本地 · 上传 GitHub 可多设备同步</p>
+
+        <p className="text-xs text-[#444444] text-center">数据保存在本地 · 上传 GitHub 可多设备同步</p>
       </div>
     </div>
   );
