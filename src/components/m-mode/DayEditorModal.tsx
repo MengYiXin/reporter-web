@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useAppStore } from '../../store/useAppStore';
+import { useToastStore } from '../../store/useToastStore';
 import { Modal } from '../common/Modal';
 import { formatDateDisplay } from '../../utils/date';
 
@@ -14,6 +15,7 @@ export function DayEditorModal({ isOpen, onClose, onGenerate }: DayEditorModalPr
   const allData = useAppStore((state) => state.allData);
   const updateDayContent = useAppStore((state) => state.updateDayContent);
   const loading = useAppStore((state) => state.loading);
+  const addToast = useToastStore((state) => state.addToast);
 
   const dayEntry = Object.values(allData).flat().find((d) => d.date === selectedDay);
   const content = dayEntry?.content || '';
@@ -47,7 +49,9 @@ export function DayEditorModal({ isOpen, onClose, onGenerate }: DayEditorModalPr
       const newValue = textarea.value;
       console.log('[DEBUG] Native input detected, value length:', newValue.length);
       setInputText(newValue);
-      updateDayContent(selectedDay, newValue);
+      // 实时读取当前selectedDay确保用最新值
+      const currentDay = useAppStore.getState().selectedDay;
+      updateDayContent(currentDay, newValue);
     };
 
     // 添加多个事件监听以确保捕获所有输入
@@ -62,11 +66,11 @@ export function DayEditorModal({ isOpen, onClose, onGenerate }: DayEditorModalPr
       textarea.removeEventListener('keyup', handleNativeInput);
       textarea.removeEventListener('blur', handleNativeInput);
     };
-  }, [isOpen, selectedDay, updateDayContent]);
+  }, [isOpen, updateDayContent]);
 
   const handleCopy = (text: string) => {
     navigator.clipboard.writeText(text);
-    alert('已复制到剪贴板');
+    addToast('已复制到剪贴板', 'success');
   };
 
   const handlePaste = async () => {
@@ -77,18 +81,20 @@ export function DayEditorModal({ isOpen, onClose, onGenerate }: DayEditorModalPr
       if (textareaRef.current) {
         textareaRef.current.value = newText;
       }
-      updateDayContent(selectedDay, newText);
-      alert('粘贴成功');
-    } catch (err) {
-      alert('粘贴失败，请尝试长按输入框粘贴');
+      // 实时读取当前selectedDay确保用最新值
+      const currentDay = useAppStore.getState().selectedDay;
+      updateDayContent(currentDay, newText);
+      addToast('粘贴成功', 'success');
+    } catch {
+      addToast('粘贴失败，请尝试长按输入框粘贴', 'error');
     }
   };
 
   const handleGenerate = () => {
-    // 保存当前输入
-    if (textareaRef.current) {
-      updateDayContent(selectedDay, textareaRef.current.value);
-    }
+    // 实时读取当前selectedDay和textarea值，不用闭包捕获的旧值
+    const currentDay = useAppStore.getState().selectedDay;
+    const currentContent = textareaRef.current?.value || '';
+    updateDayContent(currentDay, currentContent);
     onClose();
     onGenerate();
   };

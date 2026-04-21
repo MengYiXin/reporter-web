@@ -1,4 +1,5 @@
 import { useAppStore } from '../../store/useAppStore';
+import { useToastStore } from '../../store/useToastStore';
 
 interface YModeResultProps {
   onBack: () => void;
@@ -9,6 +10,7 @@ export function YModeResult({ onBack }: YModeResultProps) {
   const sjcArchive = useAppStore((state) => state.sjcArchive);
   const currentWeekStart = useAppStore((state) => state.currentWeekStart);
   const loading = useAppStore((state) => state.loading);
+  const addToast = useToastStore((state) => state.addToast);
 
   const currentWeekData = sjcArchive[currentWeekStart];
 
@@ -29,7 +31,7 @@ export function YModeResult({ onBack }: YModeResultProps) {
 
   const handleCopy = () => {
     navigator.clipboard.writeText(generatedReport);
-    alert('已复制到剪贴板');
+    addToast('已复制到剪贴板', 'success');
   };
 
   const handleExport = () => {

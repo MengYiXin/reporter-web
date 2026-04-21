@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useAppStore } from '../../store/useAppStore';
+import { useToastStore } from '../../store/useToastStore';
 import { SJC_DEPARTMENTS } from '../../constants/config';
 import { WeekSelector } from './WeekSelector';
 import { CategoryEditor } from './CategoryEditor';
@@ -29,6 +30,7 @@ export function YModeWorkRecord({ onGenerateReport, onExpandCell }: YModeWorkRec
   const carryOverUnfinished = useAppStore((state) => state.carryOverUnfinished);
   const getArchivedWeeks = useAppStore((state) => state.getArchivedWeeks);
   const selectWeek = useAppStore((state) => state.selectWeek);
+  const addToast = useToastStore((state) => state.addToast);
 
   const [editorCategory, setEditorCategory] = useState<SJCCategory | null>(null);
 
@@ -47,7 +49,7 @@ export function YModeWorkRecord({ onGenerateReport, onExpandCell }: YModeWorkRec
 分管领导：${cat.entry.leader || '无'}
 责任人：${cat.entry.owner || '无'}`;
     navigator.clipboard.writeText(text);
-    alert('已复制到剪贴板');
+    addToast('已复制到剪贴板', 'success');
   };
 
   const handleCopyWeekReport = () => {
@@ -67,7 +69,7 @@ export function YModeWorkRecord({ onGenerateReport, onExpandCell }: YModeWorkRec
       }
     });
     navigator.clipboard.writeText(lines.join('\n'));
-    alert('已复制到剪贴板');
+    addToast('已复制到剪贴板', 'success');
   };
 
   const handleOpenCategory = (idx: number, cat: SJCCategory) => {

@@ -190,11 +190,14 @@ export const useAppStore = create<AppState>()(
       updateDayContent: (date, content) => {
         set((state) => {
           const updated = { ...state.allData };
-          Object.keys(updated).forEach((weekStart) => {
-            updated[weekStart] = updated[weekStart].map((d) =>
-              d.date === date ? { ...d, content } : d
-            );
-          });
+          for (const weekStart of Object.keys(updated)) {
+            const idx = updated[weekStart].findIndex((d) => d.date === date);
+            if (idx !== -1) {
+              updated[weekStart] = [...updated[weekStart]];
+              updated[weekStart][idx] = { ...updated[weekStart][idx], content };
+              break;
+            }
+          }
           return { allData: updated };
         });
       },
@@ -202,11 +205,14 @@ export const useAppStore = create<AppState>()(
       updateOptimizedContent: (date, content) => {
         set((state) => {
           const updated = { ...state.allData };
-          Object.keys(updated).forEach((weekStart) => {
-            updated[weekStart] = updated[weekStart].map((d) =>
-              d.date === date ? { ...d, optimizedContent: content } : d
-            );
-          });
+          for (const weekStart of Object.keys(updated)) {
+            const idx = updated[weekStart].findIndex((d) => d.date === date);
+            if (idx !== -1) {
+              updated[weekStart] = [...updated[weekStart]];
+              updated[weekStart][idx] = { ...updated[weekStart][idx], optimizedContent: content };
+              break;
+            }
+          }
           return { allData: updated };
         });
       },

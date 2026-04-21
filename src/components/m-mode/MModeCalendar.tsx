@@ -14,7 +14,9 @@ export function MModeCalendar({ onGenerate }: MModeCalendarProps) {
   const allData = useAppStore((state) => state.allData);
   const [editorOpen, setEditorOpen] = useState(false);
 
-  const filledDaysCount = Object.values(allData).flat().filter((d) => d.content.trim()).length;
+  const currentWeekStart = useAppStore((state) => state.currentWeekStart);
+  const currentWeekData = allData[currentWeekStart] || [];
+  const filledDaysCount = currentWeekData.filter((d) => d.content.trim()).length;
 
   const handleGenerateDaily = () => {
     setReportType('daily');

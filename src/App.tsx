@@ -2,7 +2,8 @@ import { useEffect } from 'react';
 import { useAppStore } from './store/useAppStore';
 import { useSjcAutoSave, useWeekEntriesAutoSave } from './hooks/useAutoSave';
 import { useMobile } from './hooks/useMobile';
-import { Header, LoadingOverlay } from './components/common';
+import { Header, LoadingOverlay, ToastContainer } from './components/common';
+import { useToastStore } from './store/useToastStore';
 import { UserSelectScreen, LoginScreen } from './components/user-select';
 import { MModeCalendar, MModeArchive, MModeResult } from './components/m-mode';
 import { YModeWorkRecord, YModeResult } from './components/y-mode';
@@ -37,6 +38,7 @@ function App() {
   const updateSJCCell = useAppStore((state) => state.updateSJCCell);
 
   const isMobile = useMobile();
+  const addToast = useToastStore((state) => state.addToast);
 
   // Auto-save hooks
   useSjcAutoSave();
@@ -79,19 +81,19 @@ function App() {
           return;
         }
         const dayEntry = Object.values(allData).flat().find((d) => d.date === selectedDay);
-        // 日报优先使用优化后的内容
-        content = dayEntry?.optimizedContent || dayEntry?.content || '';
+        // 优先使用用户当前输入的content，仅当content为空时才用optimizedContent
+        content = dayEntry?.content || dayEntry?.optimizedContent || '';
         targetDate = selectedDay;
       } else {
-        // 周报使用所有天的优化后内容
-        const filledDays = Object.values(allData).flat().filter((d) => d.optimizedContent.trim() || d.content.trim());
+        // 周报使用所有天的内容，优先用用户输入的content
+        const filledDays = Object.values(allData).flat().filter((d) => d.content.trim() || d.optimizedContent.trim());
         if (filledDays.length === 0) {
           setGeneratedReport('请至少填写或优化一天的工作内容');
           setLoading(false);
           return;
         }
         content = filledDays.map((d) => {
-          const text = d.optimizedContent || d.content;
+          const text = d.content || d.optimizedContent;
           return `${d.dayName} (${d.date}):\n${text}`;
         }).join('\n\n');
         targetDate = `${currentWeekData[0]?.date || ''} 至 ${currentWeekData[4]?.date || ''}`;
@@ -138,6 +140,7 @@ function App() {
     try {
       if (!apiKey.trim()) {
         setGeneratedReport('请先设置 API Key');
+        setLoading(false);
         return;
       }
 
@@ -146,6 +149,7 @@ function App() {
       );
       if (!hasContent) {
         setGeneratedReport('请至少填写本周完成情况');
+        setLoading(false);
         return;
       }
 
@@ -182,11 +186,11 @@ function App() {
     const entry = category.entry;
 
     if (!entry.thisWeek.trim() && field === 'thisWeek') {
-      alert('请先填写本周工作内容');
+      addToast('请先填写本周工作内容', 'error');
       return;
     }
     if (!apiKey.trim()) {
-      alert('请先设置 API Key');
+      addToast('请先设置 API Key', 'error');
       return;
     }
 
@@ -218,7 +222,7 @@ function App() {
       });
 
       if (result.error) {
-        alert(result.error);
+        addToast(result.error, 'error');
         return;
       }
 
@@ -226,7 +230,7 @@ function App() {
         updateSJCCell(categoryIndex, field, result.content);
       }
     } catch (error: unknown) {
-      alert(`生成失败：${error instanceof Error ? error.message : '未知错误'}`);
+      addToast(`生成失败：${error instanceof Error ? error.message : '未知错误'}`, 'error');
     } finally {
       setLoading(false);
     }
@@ -236,7 +240,7 @@ function App() {
 
   const uploadToGithub = async () => {
     if (!ghToken) {
-      alert('请先输入 GitHub Token');
+      addToast('请先输入 GitHub Token', 'error');
       return;
     }
     setSyncStatus('syncing');
@@ -281,10 +285,10 @@ function App() {
       }
 
       setSyncStatus('success');
-      alert('上传成功！');
+      addToast('上传成功！', 'success');
     } catch {
       setSyncStatus('error');
-      alert('上传失败，请检查网络后重试');
+      addToast('上传失败，请检查网络后重试', 'error');
     }
 
     setTimeout(() => setSyncStatus('idle'), 2000);
@@ -292,7 +296,7 @@ function App() {
 
   const downloadFromGithub = async () => {
     if (!ghToken || !gistId) {
-      alert('请先确保已上传过数据');
+      addToast('请先确保已上传过数据', 'error');
       return;
     }
     setSyncStatus('syncing');
@@ -315,12 +319,12 @@ function App() {
             localStorage.setItem(STORAGE_KEYS.AI_API_KEY, parsed.apiKey);
           }
           setSyncStatus('success');
-          alert('下载成功！');
+          addToast('下载成功！', 'success');
         }
       }
     } catch {
       setSyncStatus('error');
-      alert('下载失败！');
+      addToast('下载失败！', 'error');
     }
 
     setTimeout(() => setSyncStatus('idle'), 2000);
@@ -342,6 +346,7 @@ function App() {
 
   return (
     <div className="min-h-screen bg-[#0a0a0a]">
+      <ToastContainer />
       {loading && <LoadingOverlay message="AI 处理中..." />}
       <div className={`max-w-6xl mx-auto px-4 py-6 ${isMobile ? 'px-3' : 'px-6 py-8'}`}>
         {/* Header */}
@@ -432,11 +437,13 @@ function App() {
           />
         )}
 
-        {/* 结果视图 */}
-        {viewMode === 'result' && isYMode && (
+        {/* 结果视图 - Y模式 */}
+        {isYMode && viewMode === 'result' && (
           <YModeResult onBack={() => setViewMode('sjc')} />
         )}
-        {viewMode === 'result' && !isYMode && (
+
+        {/* 结果视图 - M模式 */}
+        {!isYMode && mView === 'result' && (
           <MModeResult />
         )}
 

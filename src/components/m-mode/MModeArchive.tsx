@@ -1,13 +1,15 @@
 import { useAppStore } from '../../store/useAppStore';
+import { useToastStore } from '../../store/useToastStore';
 
 export function MModeArchive() {
   const reportArchive = useAppStore((state) => state.reportArchive);
   const setMView = useAppStore((state) => state.setMView);
   const setGeneratedReport = useAppStore((state) => state.setGeneratedReport);
+  const addToast = useToastStore((state) => state.addToast);
 
   const handleCopy = (content: string) => {
     navigator.clipboard.writeText(content);
-    alert('已复制');
+    addToast('已复制', 'success');
   };
 
   const handleView = (content: string) => {
